@@ -31,6 +31,7 @@ const mapUser = (row) => ({
   isLeader: Boolean(row.is_leader),
   managerUserId: row.manager_user_id,
   role: row.role,
+  commissionRatePercent: Number(row.commission_rate_percent || 0),
   isActive: Boolean(row.is_active)
 });
 

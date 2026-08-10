@@ -29,6 +29,12 @@ const displayDate = (value) => {
   return Number(parts[1]) + '月' + Number(parts[2]) + '日';
 };
 const numberText = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const currentMonthString = () => todayString().slice(0, 7);
+const shiftMonth = (month, delta) => {
+  const parts = String(month).split('-').map(Number);
+  const date = new Date(parts[0], parts[1] - 1 + delta, 1);
+  return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+};
 
 const statusView = (apiStatus) => {
   const views = {
@@ -92,6 +98,13 @@ Page({
     uploading: false,
     importingPi: false,
     apiError: '',
+    exchangeRates: null,
+    exchangeRateError: '',
+    performanceMonth: currentMonthString(),
+    performanceLoading: false,
+    performanceWarning: '',
+    performanceItems: [],
+    performanceSummary: { orderCount: 0, orderAmount: '0.00', receivedCny: '0.00', profitCny: '0.00', commissionCny: '0.00' },
     showShipment: false,
     showUserAdmin: false,
     userAdminLoading: false,
@@ -119,7 +132,7 @@ Page({
     stats: { urgent: 0, purchasing: 0, ready: 0, shipped: 0 },
     form: {
       customer: '', customerContact: '', shippingAddress: '', country: '', deadline: '', payment: 'T/T',
-      freight: '', note: '', paymentAttachments: [], products: [emptyProduct()]
+      freight: '', receivedCny: '', note: '', paymentAttachments: [], products: [emptyProduct()]
     },
     shippingForm: {
       logisticsCompany: '', trackingNo: '', shippedOn: '', estimatedArrivalOn: '', note: '', attachments: []
@@ -129,6 +142,7 @@ Page({
   onLoad() {
     this.syncCurrentUser();
     this.loadOrders();
+    this.loadExchangeRates();
   },
 
   onShow() {
@@ -231,6 +245,73 @@ Page({
     const tab = e.currentTarget.dataset.tab;
     this.setData({ currentTab: tab, showRoleMenu: false });
     if (tab === 'orders') this.refreshVisible();
+    if (tab === 'performance') this.loadPerformance();
+  },
+
+  async loadExchangeRates() {
+    try {
+      const loggedIn = await this.waitForLogin();
+      if (!loggedIn) return;
+      const result = await api.exchangeRates.usdCny();
+      const rates = result.rates || {};
+      const first = Number(rates.monthStart && rates.monthStart.rate || 0);
+      const latest = Number(rates.today && rates.today.rate || 0);
+      this.setData({
+        exchangeRates: {
+          monthFirst: first.toFixed(4),
+          monthFirstDate: rates.monthStart && rates.monthStart.date,
+          latest: latest.toFixed(4),
+          latestDate: rates.today && rates.today.date,
+          changePercent: first ? (((latest - first) / first) * 100).toFixed(2) : '0.00',
+          isUp: latest >= first
+        },
+        exchangeRateError: ''
+      });
+    } catch (error) {
+      console.error('加载汇率失败', error);
+      this.setData({ exchangeRateError: error.message });
+    }
+  },
+
+  async loadPerformance() {
+    if (!['sales', 'admin'].includes(this.data.currentUser.role)) return;
+    this.setData({ performanceLoading: true, performanceWarning: '' });
+    try {
+      const result = await api.performance.monthly(this.data.performanceMonth);
+      const items = (result.items || []).map((item) => ({
+        ...item,
+        orderAmountText: Number(item.orderAmount || 0).toFixed(2),
+        receivedCnyText: item.revenueCny === null ? '待录入' : Number(item.revenueCny || 0).toFixed(2),
+        productCostText: Number(item.productCost || 0).toFixed(2),
+        freightText: Number(item.freight || 0).toFixed(2),
+        profitCnyText: item.profitCny === null ? '待汇率' : Number(item.profitCny || 0).toFixed(2),
+        commissionCnyText: item.commissionCny === null ? '待汇率' : Number(item.commissionCny || 0).toFixed(2),
+        profitClass: Number(item.profitCny || 0) < 0 ? 'negative' : 'positive'
+      }));
+      const summary = result.summary || {};
+      this.setData({
+        performanceItems: items,
+        performanceSummary: {
+          orderCount: summary.orderCount || 0,
+          orderAmount: Number(summary.orderAmount || 0).toFixed(2),
+          receivedCny: Number(summary.receivedCny || 0).toFixed(2),
+          profitCny: Number(summary.profitCny || 0).toFixed(2),
+          commissionCny: Number(summary.commissionCny || 0).toFixed(2)
+        },
+        performanceWarning: (result.warnings || []).join('；'),
+        performanceLoading: false
+      });
+    } catch (error) {
+      console.error('加载月度业绩失败', error);
+      this.setData({ performanceLoading: false, performanceWarning: error.message, performanceItems: [] });
+    }
+  },
+
+  changePerformanceMonth(e) {
+    const delta = Number(e.currentTarget.dataset.delta || 0);
+    const month = shiftMonth(this.data.performanceMonth, delta);
+    if (month > currentMonthString()) return;
+    this.setData({ performanceMonth: month }, () => this.loadPerformance());
   },
 
   toggleRoleMenu() {
@@ -488,6 +569,7 @@ Page({
         paymentMethod: f.payment,
         currency: 'USD',
         freight: Number(f.freight || 0),
+        receivedCny: f.receivedCny === '' ? null : Number(f.receivedCny),
         note: f.note || null,
         products,
         paymentAttachments: f.paymentAttachments || []
@@ -499,7 +581,7 @@ Page({
         currentTab: 'orders',
         filter: 'all',
         submitting: false,
-        form: { customer: '', customerContact: '', shippingAddress: '', country: '', deadline: '', payment: 'T/T', freight: '', note: '', paymentAttachments: [], products: [emptyProduct()] }
+        form: { customer: '', customerContact: '', shippingAddress: '', country: '', deadline: '', payment: 'T/T', freight: '', receivedCny: '', note: '', paymentAttachments: [], products: [emptyProduct()] }
       });
       this.rebuildDerivedData();
       this.showToast('订单已创建，采购待办已同步');

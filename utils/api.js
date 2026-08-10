@@ -123,7 +123,16 @@ const orders = {
 const adminUsers = {
   list: () => request({ path: '/api/admin/users' }),
   setRole: (id, role) => request({ path: '/api/admin/users/' + encodeURIComponent(id) + '/role', method: 'PATCH', data: { role } }),
-  setActive: (id, isActive) => request({ path: '/api/admin/users/' + encodeURIComponent(id) + '/active', method: 'PATCH', data: { isActive } })
+  setActive: (id, isActive) => request({ path: '/api/admin/users/' + encodeURIComponent(id) + '/active', method: 'PATCH', data: { isActive } }),
+  setCommission: (id, commissionRatePercent) => request({ path: '/api/admin/users/' + encodeURIComponent(id) + '/commission', method: 'PATCH', data: { commissionRatePercent } })
 };
 
-module.exports = { request, uploadImage, uploadPi, loginWithDingTalk, orders, adminUsers };
+const exchangeRates = {
+  usdCny: () => request({ path: '/api/exchange-rates/usd-cny' })
+};
+
+const performance = {
+  monthly: (month) => request({ path: '/api/performance/monthly?month=' + encodeURIComponent(month) })
+};
+
+module.exports = { request, uploadImage, uploadPi, loginWithDingTalk, orders, adminUsers, exchangeRates, performance };

@@ -52,7 +52,7 @@ router.get('/', async (_req, res) => {
   }
   const rows = await query(
     `SELECT id, ding_user_id, union_id, name, avatar_url, mobile, email, title, job_number,
-      role, is_ding_admin, is_active, last_login_at, created_at
+      role, commission_rate_percent, is_ding_admin, is_active, last_login_at, created_at
      FROM users ORDER BY is_ding_admin DESC, name ASC`
   );
   res.json({ items: rows, sync });
@@ -78,6 +78,17 @@ router.patch('/:id/active', validate(z.object({ isActive: z.boolean() })), async
   const result = await query('UPDATE users SET is_active = ? WHERE id = ?', [req.body.isActive, req.params.id]);
   if (!result.affectedRows) throw notFound('User not found');
   res.json({ id: req.params.id, isActive: req.body.isActive });
+});
+
+router.patch('/:id/commission', validate(z.object({
+  commissionRatePercent: z.coerce.number().min(0).max(100)
+})), async (req, res) => {
+  const result = await query(
+    'UPDATE users SET commission_rate_percent = ? WHERE id = ?',
+    [req.body.commissionRatePercent, req.params.id]
+  );
+  if (!result.affectedRows) throw notFound('User not found');
+  res.json({ id: req.params.id, commissionRatePercent: req.body.commissionRatePercent });
 });
 
 export default router;

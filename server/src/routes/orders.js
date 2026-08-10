@@ -90,11 +90,13 @@ router.post('/', requireRoles('sales', 'admin'), validate(createOrderSchema), as
     await connection.execute(
       `INSERT INTO orders
         (id, order_no, customer_name, customer_contact, shipping_address, destination, deadline,
-         payment_method, currency, freight, goods_total, total_amount, purchase_total, total_quantity, status, note, owner_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_purchase', ?, ?)`,
+         payment_method, currency, freight, goods_total, total_amount, purchase_total, total_quantity,
+         received_cny, status, note, owner_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_purchase', ?, ?)`,
       [orderId, orderNo, body.customerName, body.customerContact ?? null, body.shippingAddress ?? null,
         body.destination ?? null, body.deadline, body.paymentMethod, body.currency, body.freight,
-        goodsTotal, goodsTotal + body.freight, purchaseTotal, totalQuantity, body.note ?? null, req.user.sub]
+        goodsTotal, goodsTotal + body.freight, purchaseTotal, totalQuantity, body.receivedCny ?? null,
+        body.note ?? null, req.user.sub]
     );
     for (const product of body.products) {
       const productId = randomUUID();
@@ -143,7 +145,10 @@ router.put('/:id', requireRoles('admin'), validate(adminReplaceOrderSchema), asy
     const [orders] = await connection.execute('SELECT * FROM orders WHERE id = ? FOR UPDATE', [req.params.id]);
     const order = orders[0];
     if (!order) throw notFound('Order not found');
-    const [owners] = await connection.execute('SELECT id FROM users WHERE id = ? LIMIT 1', [body.ownerUserId]);
+    const [owners] = await connection.execute(
+      'SELECT id, commission_rate_percent FROM users WHERE id = ? LIMIT 1',
+      [body.ownerUserId]
+    );
     if (!owners[0]) throw notFound('Order owner not found');
 
     const [existingProducts] = await connection.execute('SELECT id FROM products WHERE order_id = ? FOR UPDATE', [order.id]);
@@ -191,14 +196,24 @@ router.put('/:id', requireRoles('admin'), validate(adminReplaceOrderSchema), asy
     const completed = body.products.filter((item) => item.purchaseStatus === 'completed').length;
     const derivedStatus = derivePurchaseStatus(completed, body.products.length);
     const nextStatus = ['shipped', 'cancelled'].includes(order.status) ? order.status : derivedStatus;
+    const nextIsCompleted = body.isCompleted ?? Boolean(order.is_completed);
+    const receivedCny = body.receivedCny === undefined ? order.received_cny : body.receivedCny;
+    const exchangeRate = body.exchangeRate === undefined ? order.exchange_rate : body.exchangeRate;
+    const commissionSnapshot = nextIsCompleted
+      ? (order.commission_rate_percent ?? owners[0].commission_rate_percent)
+      : null;
     await connection.execute(
       `UPDATE orders SET customer_name = ?, customer_contact = ?, shipping_address = ?, destination = ?,
        deadline = ?, payment_method = ?, currency = ?, freight = ?, goods_total = ?, total_amount = ?,
-       purchase_total = ?, total_quantity = ?, status = ?, note = ?, owner_user_id = ?, version = version + 1
+       purchase_total = ?, total_quantity = ?, received_cny = ?, exchange_rate = ?,
+       commission_rate_percent = ?, is_completed = ?,
+       completed_at = CASE WHEN ? = TRUE THEN COALESCE(completed_at, NOW(3)) ELSE NULL END,
+       status = ?, note = ?, owner_user_id = ?, version = version + 1
        WHERE id = ?`,
       [body.customerName, body.customerContact ?? null, body.shippingAddress ?? null, body.destination ?? null,
         body.deadline, body.paymentMethod, body.currency, body.freight, goodsTotal, goodsTotal + body.freight,
-        purchaseTotal, totalQuantity, nextStatus, body.note ?? null, body.ownerUserId, order.id]
+        purchaseTotal, totalQuantity, receivedCny ?? null, exchangeRate ?? null, commissionSnapshot,
+        nextIsCompleted, nextIsCompleted, nextStatus, body.note ?? null, body.ownerUserId, order.id]
     );
     await connection.execute(
       `INSERT INTO order_status_history (order_id, from_status, to_status, action, actor_user_id, detail)

@@ -37,7 +37,8 @@ try {
     is_boss: 'BOOLEAN NOT NULL DEFAULT FALSE',
     is_senior: 'BOOLEAN NOT NULL DEFAULT FALSE',
     is_leader: 'BOOLEAN NOT NULL DEFAULT FALSE',
-    manager_user_id: 'VARCHAR(128) NULL'
+    manager_user_id: 'VARCHAR(128) NULL',
+    commission_rate_percent: 'DECIMAL(6,3) NOT NULL DEFAULT 0'
   };
   for (const [name, definition] of Object.entries(profileColumns)) {
     if (!existing.has(name)) await connection.query(`ALTER TABLE users ADD COLUMN ${name} ${definition}`);
@@ -51,6 +52,23 @@ try {
   if (productRows[0]?.IS_NULLABLE === 'NO') {
     // 空货号写为 NULL，使同一订单内多个未填写货号的产品不会触发唯一索引冲突。
     await connection.query('ALTER TABLE products MODIFY sku VARCHAR(128) NULL');
+  }
+
+  const [orderRows] = await connection.execute(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders'`,
+    [process.env.DB_NAME || 'hangji']
+  );
+  const orderColumns = new Set(orderRows.map((row) => row.COLUMN_NAME));
+  const financeColumns = {
+    received_cny: 'DECIMAL(18,2) NULL',
+    exchange_rate: 'DECIMAL(12,6) NULL',
+    commission_rate_percent: 'DECIMAL(6,3) NULL',
+    is_completed: 'BOOLEAN NOT NULL DEFAULT FALSE',
+    completed_at: 'DATETIME(3) NULL'
+  };
+  for (const [name, definition] of Object.entries(financeColumns)) {
+    if (!orderColumns.has(name)) await connection.query(`ALTER TABLE orders ADD COLUMN ${name} ${definition}`);
   }
 
   const [attachmentRows] = await connection.execute(

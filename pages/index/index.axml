@@ -38,6 +38,17 @@
         </view>
       </view>
 
+      <view class="rate-tape" a:if="{{exchangeRates}}">
+        <view class="rate-tape-head"><text>USD / CNY</text><text>FRANKFURTER · 参考汇率</text></view>
+        <view class="rate-values">
+          <view><text>本月 1 日</text><text>{{exchangeRates.monthFirst}}</text><text>{{exchangeRates.monthFirstDate}}</text></view>
+          <view class="rate-divider"></view>
+          <view><text>今日</text><text>{{exchangeRates.latest}}</text><text>{{exchangeRates.latestDate}}</text></view>
+          <view class="rate-change {{exchangeRates.isUp ? 'rate-up' : 'rate-down'}}">{{exchangeRates.isUp ? '↑' : '↓'}} {{exchangeRates.changePercent}}%</view>
+        </view>
+      </view>
+      <view class="rate-tape rate-error" a:elif="{{exchangeRateError}}" onTap="loadExchangeRates">汇率暂时不可用 · 点击重试</view>
+
       <view class="section-head"><text>今日要事</text><text class="section-meta">按紧急程度排序</text></view>
       <view class="urgent-card" a:if="{{urgentOrder}}" data-id="{{urgentOrder.id}}" onTap="openDetail">
         <view class="urgent-stripe"></view>
@@ -53,6 +64,10 @@
         <view class="metric" data-tab="orders" onTap="switchTab"><text class="metric-num">{{stats.purchasing}}</text><text class="metric-name">采购进行中</text><text class="metric-arrow">↗</text></view>
         <view class="metric metric-dark" data-tab="tasks" onTap="switchTab"><text class="metric-num">{{stats.ready}}</text><text class="metric-name">等待发货</text><text class="metric-arrow">↗</text></view>
         <view class="metric"><text class="metric-num">{{stats.shipped}}</text><text class="metric-name">本月已发货</text><text class="metric-arrow">✓</text></view>
+      </view>
+
+      <view class="performance-entry" a:if="{{currentUser.role === 'sales' || currentUser.role === 'admin'}}" data-tab="performance" onTap="switchTab">
+        <view><text>MONTHLY PERFORMANCE</text><text>查看本月利润与提成明细</text></view><text>→</text>
       </view>
 
       <view class="section-head"><text>最近流转</text><text class="link" data-tab="orders" onTap="switchTab">查看全部</text></view>
@@ -107,6 +122,28 @@
         </view>
       </block>
       <view class="empty" a:if="{{!loading && taskOrders.length === 0}}"><text>当前没有待办</text><text>新的流转任务会自动出现在这里</text></view>
+    </view>
+
+    <view a:if="{{currentTab === 'performance'}}" class="page-content performance-page">
+      <view class="performance-title-row">
+        <view><text class="page-kicker">MONTHLY PERFORMANCE</text><text class="page-title">月度业绩</text></view>
+        <view class="month-switch"><text data-delta="-1" onTap="changePerformanceMonth">‹</text><text>{{performanceMonth}}</text><text data-delta="1" onTap="changePerformanceMonth">›</text></view>
+      </view>
+      <view class="performance-summary">
+        <view><text>订单</text><text>{{performanceSummary.orderCount}}</text><text>笔</text></view>
+        <view><text>到账人民币</text><text>¥{{performanceSummary.receivedCny}}</text></view>
+        <view><text>总利润</text><text>¥{{performanceSummary.profitCny}}</text></view>
+        <view class="commission-summary"><text>总提成</text><text>¥{{performanceSummary.commissionCny}}</text></view>
+      </view>
+      <view class="performance-note" a:if="{{performanceWarning}}">{{performanceWarning}}</view>
+      <view class="empty" a:if="{{performanceLoading}}"><text>正在核算本月业绩</text><text>历史汇率会自动匹配订单日期</text></view>
+      <view class="performance-order" a:for="{{performanceItems}}" a:key="id" data-id="{{item.id}}" onTap="openDetail">
+        <view class="performance-order-head"><view><text>{{item.customerName}}</text><text>{{item.orderNo}} · {{item.orderDate}}</text></view><text class="completion-badge {{item.isCompleted ? 'is-completed' : ''}}">{{item.isCompleted ? '已完结' : '进行中'}}</text></view>
+        <view class="performance-money"><view><text>订单金额</text><text>{{item.currency}} {{item.orderAmountText}}</text></view><view><text>到账人民币</text><text>¥{{item.receivedCnyText}}</text></view></view>
+        <view class="performance-costs"><view><text>商品成本</text><text>{{item.currency}} {{item.productCostText}}</text></view><view><text>运费</text><text>{{item.currency}} {{item.freightText}}</text></view><view><text>货代公司</text><text>{{item.freightForwarder || '待填写'}}</text></view></view>
+        <view class="performance-result"><view><text>总利润</text><text class="{{item.profitClass}}">¥{{item.profitCnyText}}</text></view><view><text>提成 · {{item.commissionRatePercent}}%</text><text>¥{{item.commissionCnyText}}</text></view></view>
+      </view>
+      <view class="empty" a:if="{{!performanceLoading && performanceItems.length === 0}}"><text>本月暂无业绩</text><text>新订单创建后会自动进入月度核算</text></view>
     </view>
 
     <view a:if="{{currentTab === 'mine'}}" class="page-content profile-page">
@@ -182,6 +219,7 @@
         <view class="add-product" onTap="addProduct"><text>＋</text><view><text>添加产品或款式</text><text>不同颜色、规格建议分开记录</text></view></view>
         <view class="field"><text>付款方式</text><view class="select-value" onTap="choosePayment">{{form.payment}}<text>切换 ›</text></view></view>
         <view class="field"><text>运费（USD）</text><input type="digit" data-field="freight" value="{{form.freight}}" onInput="updateForm" placeholder="0.00" /></view>
+        <view class="field"><text>到账人民币（可稍后补录）</text><input type="digit" data-field="receivedCny" value="{{form.receivedCny}}" onInput="updateForm" placeholder="0.00" /></view>
         <view class="field"><text>订单备注</text><input data-field="note" value="{{form.note}}" onInput="updateForm" placeholder="包装、交付或客户要求" /></view>
         <view class="shipment-upload" onTap="uploadPaymentAttachments"><text>＋ 上传付款凭证</text><text>已添加 {{form.paymentAttachments.length}} / 9</text></view>
         <view class="shipment-files" a:if="{{form.paymentAttachments.length}}"><view a:for="{{form.paymentAttachments}}" a:for-item="attachment" a:for-index="index" a:key="objectKey"><text>{{attachment.fileName}}</text><text data-index="{{index}}" catchTap="removePaymentAttachment">×</text></view></view>

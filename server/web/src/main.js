@@ -7,6 +7,7 @@ const today = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
+const currentMonth = () => today().slice(0, 7);
 const money = (value) => Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
 const roleNames = { sales: '业务员', purchase: '采购', logistics: '物流', admin: '管理员' };
@@ -27,6 +28,9 @@ const state = {
   currentView: 'dashboard',
   currentDetail: null,
   members: [],
+  rates: null,
+  performance: null,
+  performanceMonth: currentMonth(),
   productDrafts: [],
   paymentAttachments: [],
   shipmentAttachments: [],
@@ -197,8 +201,12 @@ function enterApp() {
   $('#auth-screen').classList.add('is-hidden');
   $('#app').classList.remove('is-hidden');
   renderAccount();
+  $('#performance-month').value = state.performanceMonth;
   if (previewMode) renderAll();
-  else loadOrders();
+  else {
+    loadOrders();
+    loadExchangeRates();
+  }
 }
 
 function logout(reload = true) {
@@ -229,6 +237,72 @@ async function loadOrders() {
     console.error('订单读取失败', error);
     setError(`订单读取失败：${error.message}`);
   }
+}
+
+async function loadExchangeRates() {
+  try {
+    const result = await api('/api/exchange-rates/usd-cny');
+    state.rates = result.rates;
+    renderExchangeRates();
+  } catch (error) {
+    console.error('汇率读取失败', error);
+    $('#rate-month-start').textContent = '暂不可用';
+    $('#rate-today').textContent = '暂不可用';
+  }
+}
+
+function renderExchangeRates() {
+  if (!state.rates) return;
+  const first = Number(state.rates.monthStart.rate);
+  const latest = Number(state.rates.today.rate);
+  const change = latest - first;
+  $('#rate-month-start').textContent = first.toFixed(4);
+  $('#rate-month-date').textContent = state.rates.monthStart.date;
+  $('#rate-today').textContent = latest.toFixed(4);
+  $('#rate-today-date').textContent = state.rates.today.date;
+  $('#rate-change').textContent = `${change >= 0 ? '+' : ''}${change.toFixed(4)}`;
+  $('#rate-change').className = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
+}
+
+async function loadPerformance() {
+  if (!['sales', 'admin'].includes(state.user?.role)) return;
+  if (previewMode) {
+    renderPerformance();
+    return;
+  }
+  $('#performance-body').innerHTML = '<tr><td colspan="10"><div class="loading-line"></div></td></tr>';
+  try {
+    state.performance = await api(`/api/performance/monthly?month=${encodeURIComponent(state.performanceMonth)}`);
+    renderPerformance();
+  } catch (error) {
+    $('#performance-body').innerHTML = `<tr><td colspan="10">业绩读取失败：${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function renderPerformance() {
+  const report = state.performance;
+  if (!report) return;
+  $('#performance-orders').textContent = report.summary.orderCount;
+  $('#performance-received').textContent = `¥${money(report.summary.receivedCny)}`;
+  $('#performance-profit').textContent = `¥${money(report.summary.profitCny)}`;
+  $('#performance-commission').textContent = `¥${money(report.summary.completedCommissionCny)}`;
+  $('#performance-commission-note').textContent = `全部订单预计 ¥${money(report.summary.commissionCny)}`;
+  $('#performance-body').innerHTML = report.items.map((item) => `<tr data-order-id="${item.id}">
+    <td><div class="performance-order"><strong>${escapeHtml(item.customerName)}</strong><span>${escapeHtml(item.orderNo)} · ${escapeHtml(item.orderDate)}</span></div></td>
+    <td class="admin-only">${escapeHtml(item.ownerName)}</td>
+    <td>${escapeHtml(item.currency)} ${money(item.orderAmount)}</td>
+    <td>${item.receivedCny == null ? (item.convertedOrderAmountCny == null ? '待汇率' : `≈ ¥${money(item.convertedOrderAmountCny)}`) : `¥${money(item.receivedCny)}`}</td>
+    <td>${escapeHtml(item.currency)} ${money(item.productCost)}</td>
+    <td>${escapeHtml(item.currency)} ${money(item.freight)}</td>
+    <td class="${Number(item.profitCny) >= 0 ? 'profit-positive' : 'profit-negative'}">${item.profitCny == null ? '待汇率' : `¥${money(item.profitCny)}`}</td>
+    <td><strong>${item.commissionCny == null ? '待汇率' : `¥${money(item.commissionCny)}`}</strong><small> · ${Number(item.commissionRatePercent).toFixed(2)}%</small></td>
+    <td>${escapeHtml(item.freightForwarder || '未填写')}</td>
+    <td><span class="completion-badge ${item.isCompleted ? 'done' : ''}">${item.isCompleted ? '已完结' : '未完结'}</span></td>
+  </tr>`).join('') || '<tr><td colspan="10">该月暂无订单</td></tr>';
+  const warning = report.warnings?.join('；') || '';
+  $('#performance-warning').textContent = warning;
+  $('#performance-warning').classList.toggle('is-hidden', !warning);
+  renderAccount();
 }
 
 const deadlineDays = (value) => {
@@ -347,16 +421,19 @@ const taskCards = (orders, shipping) => orders.length ? orders.map((order) => `<
 
 function switchView(view) {
   if (view === 'admin' && state.user?.role !== 'admin') return;
+  if (view === 'performance' && !['sales', 'admin'].includes(state.user?.role)) return;
   state.currentView = view;
   $$('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
   $$('.view').forEach((section) => section.classList.toggle('active', section.id === `view-${view}`));
   const titles = {
     dashboard: ['OPERATIONS BOARD', '今日协作总览'], orders: ['ORDER MANIFEST', '订单中心'],
-    tasks: ['ACTION QUEUE', '我的待办'], admin: ['DATA ADMINISTRATION', '管理员后台']
+    performance: ['COMMISSION LEDGER', '月度业绩'], tasks: ['ACTION QUEUE', '我的待办'],
+    admin: ['DATA ADMINISTRATION', '管理员后台']
   };
   $('#view-kicker').textContent = titles[view][0];
   $('#view-title').textContent = titles[view][1];
   if (view === 'admin') loadMembers();
+  if (view === 'performance') loadPerformance();
 }
 
 async function openDetail(id) {
@@ -409,6 +486,7 @@ function renderDetail() {
   $('#detail-content').innerHTML = `
     <div class="detail-summary"><div><span>客户</span><strong>${escapeHtml(order.customerName)}</strong></div><div><span>订单总额</span><strong>${escapeHtml(order.currency)} ${money(order.totalAmount)}</strong></div><div><span>最晚出货</span><strong>${escapeHtml(String(order.deadline).slice(0,10))}</strong></div></div>
     <section class="detail-block"><h4>产品明细 · ${order.products?.length || 0} 款</h4>${productMarkup || emptyMarkup('暂无产品')}</section>
+    <section class="detail-block"><h4>财务结算</h4><div class="detail-note">到账人民币：${order.receivedCny == null ? '尚未填写' : `¥${money(order.receivedCny)}`}<br />结算汇率：${order.exchangeRate || '按订单日期自动换算'} · ${order.isCompleted ? '已完结' : '未完结'}</div></section>
     <section class="detail-block"><h4>交付信息</h4><div class="detail-note">${escapeHtml(order.shippingAddress || order.destination || '尚未填写交付地址')}<br />${escapeHtml(order.note || '无补充说明')}</div></section>
     ${order.shipment ? `<section class="detail-block"><h4>物流记录</h4><div class="detail-note">${escapeHtml(order.shipment.logisticsCompany)} · ${escapeHtml(order.shipment.trackingNo)}<br />${escapeHtml(String(order.shipment.shippedOn).slice(0,10))} → ${escapeHtml(String(order.shipment.estimatedArrivalOn).slice(0,10))}</div></section>` : ''}
     ${attachments.length ? `<section class="detail-block"><h4>关联凭证</h4><div class="attachment-list">${attachments.map((file) => `<a href="${escapeHtml(file.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(file.fileName)}</a>`).join('')}</div></section>` : ''}`;
@@ -517,7 +595,8 @@ async function submitOrder(event) {
     customerName: form.get('customerName'), customerContact: form.get('customerContact') || null,
     shippingAddress: form.get('shippingAddress') || null, destination: form.get('destination') || null,
     deadline: form.get('deadline'), paymentMethod: form.get('paymentMethod'), currency: 'USD',
-    freight: Number(form.get('freight') || 0), note: form.get('note') || null,
+    freight: Number(form.get('freight') || 0), receivedCny: form.get('receivedCny') ? Number(form.get('receivedCny')) : null,
+    note: form.get('note') || null,
     products: state.productDrafts.map((item) => ({ ...item,
       unitsPerCarton: Number(item.unitsPerCarton), cartons: Number(item.cartons), weight: Number(item.weight),
       volume: Number(item.volume), quantity: Number(item.quantity), unitPrice: Number(item.unitPrice), purchaseCost: Number(item.purchaseCost)
@@ -619,11 +698,12 @@ async function openAdminOrderEditor(orderId) {
     state.adminEditProducts = (order.products || []).map((item) => ({ ...item }));
     const form = $('#admin-order-form');
     form.reset();
-    ['customerName', 'customerContact', 'shippingAddress', 'destination', 'deadline', 'paymentMethod', 'currency', 'freight', 'note'].forEach((field) => {
+    ['customerName', 'customerContact', 'shippingAddress', 'destination', 'deadline', 'paymentMethod', 'currency', 'freight', 'receivedCny', 'exchangeRate', 'note'].forEach((field) => {
       const value = order[field];
       if (form.elements[field]) form.elements[field].value = field === 'deadline' ? String(value || '').slice(0, 10) : (value ?? '');
     });
     $('#admin-order-title').textContent = `编辑 ${order.orderNo}`;
+    form.elements.isCompleted.checked = Boolean(order.isCompleted);
     $('#admin-order-owner').innerHTML = state.members.map((member) => `<option value="${member.id}" ${member.id === order.ownerUserId ? 'selected' : ''}>${escapeHtml(member.name)} · ${escapeHtml(roleNames[member.role] || member.role)}</option>`).join('');
     renderAdminProductEditors();
     $('#admin-order-dialog').showModal();
@@ -653,7 +733,9 @@ async function saveAdminOrder(event) {
     customerName: form.get('customerName'), customerContact: form.get('customerContact') || null,
     shippingAddress: form.get('shippingAddress') || null, destination: form.get('destination') || null,
     deadline: form.get('deadline'), paymentMethod: form.get('paymentMethod'), currency: String(form.get('currency') || 'USD').toUpperCase(),
-    freight: Number(form.get('freight') || 0), note: form.get('note') || null, ownerUserId: form.get('ownerUserId'),
+    freight: Number(form.get('freight') || 0), receivedCny: form.get('receivedCny') ? Number(form.get('receivedCny')) : null,
+    exchangeRate: form.get('exchangeRate') ? Number(form.get('exchangeRate')) : null,
+    isCompleted: form.get('isCompleted') === 'on', note: form.get('note') || null, ownerUserId: form.get('ownerUserId'),
     products: state.adminEditProducts.map((item) => ({
       ...(item.id ? { id: item.id } : {}), sku: item.sku, name: item.name, variant: item.variant,
       unitsPerCarton: Number(item.unitsPerCarton), cartons: Number(item.cartons), weight: Number(item.weight), volume: Number(item.volume),
@@ -697,13 +779,13 @@ async function deleteAdminShipment() {
 
 async function loadMembers() {
   if (state.user?.role !== 'admin') return;
-  $('#members-body').innerHTML = '<tr><td colspan="5"><div class="loading-line"></div></td></tr>';
+  $('#members-body').innerHTML = '<tr><td colspan="6"><div class="loading-line"></div></td></tr>';
   try {
     const result = await api('/api/admin/users');
     state.members = result.items || result.users || [];
     renderMembers();
     if (result.sync?.ok === false) toast(`钉钉通讯录同步失败，当前显示本地数据：${result.sync.error}`);
-  } catch (error) { $('#members-body').innerHTML = `<tr><td colspan="5">读取失败：${escapeHtml(error.message)}</td></tr>`; }
+  } catch (error) { $('#members-body').innerHTML = `<tr><td colspan="6">读取失败：${escapeHtml(error.message)}</td></tr>`; }
 }
 
 function renderMembers() {
@@ -711,6 +793,7 @@ function renderMembers() {
     <td><div class="member-info"><div class="avatar">${escapeHtml((member.name || '·').slice(0,1))}</div><div><strong>${escapeHtml(member.name)}${member.isDingAdmin ?? member.is_ding_admin ? '<em class="ding-admin-mark">钉钉管理员</em>' : ''}</strong><span>${escapeHtml(member.title || member.mobile || '未填写职位')}</span></div></div></td>
     <td class="muted">${escapeHtml(member.dingUserId || member.ding_user_id || '—')}</td>
     <td><select class="role-select" data-member-role="${member.id}" ${member.id === state.user.id || (member.isDingAdmin ?? member.is_ding_admin) ? 'disabled' : ''}>${Object.entries(roleNames).map(([value, label]) => `<option value="${value}" ${member.role === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td>
+    <td>${member.role === 'sales' ? `<input class="commission-input" data-member-commission="${member.id}" type="number" min="0" max="100" step="0.01" value="${Number(member.commissionRatePercent ?? member.commission_rate_percent ?? 0)}" aria-label="${escapeHtml(member.name)}提成比例" /> %` : '—'}</td>
     <td>${member.lastLoginAt || member.last_login_at ? escapeHtml(String(member.lastLoginAt || member.last_login_at).replace('T',' ').slice(0,16)) : '尚未登录'}</td>
     <td><button class="switch ${member.isActive ?? member.is_active ? 'on' : ''}" data-member-active="${member.id}" ${member.id === state.user.id ? 'disabled' : ''} aria-label="切换账号状态"></button></td>
   </tr>`).join('');
@@ -719,6 +802,18 @@ function renderMembers() {
 async function changeMemberRole(id, role) {
   try { await api(`/api/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); toast('成员角色已更新'); await loadMembers(); }
   catch (error) { toast(`角色更新失败：${error.message}`); await loadMembers(); }
+}
+
+async function changeMemberCommission(id, commissionRatePercent) {
+  try {
+    await api(`/api/admin/users/${id}/commission`, {
+      method: 'PATCH', body: JSON.stringify({ commissionRatePercent: Number(commissionRatePercent) })
+    });
+    toast('提成比例已更新');
+  } catch (error) {
+    toast(`提成比例更新失败：${error.message}`);
+    await loadMembers();
+  }
 }
 
 async function toggleMember(id) {
@@ -737,6 +832,10 @@ function bindEvents() {
   $('#create-button').addEventListener('click', openCreate);
   $('#admin-create-order').addEventListener('click', openCreate);
   $('#refresh-button').addEventListener('click', loadOrders);
+  $('#performance-month').addEventListener('change', (event) => {
+    state.performanceMonth = event.target.value || currentMonth();
+    loadPerformance();
+  });
   $('#global-search').addEventListener('input', (event) => { state.search = event.target.value.trim(); renderOrders(); if (state.currentView === 'dashboard') switchView('orders'); });
   $('#order-filters').addEventListener('click', (event) => {
     const button = event.target.closest('[data-status]'); if (!button) return;
@@ -807,13 +906,32 @@ function bindEvents() {
     renderAdminProductEditors();
   });
   $('#admin-refresh').addEventListener('click', loadMembers);
-  $('#members-body').addEventListener('change', (event) => { const select = event.target.closest('[data-member-role]'); if (select) changeMemberRole(select.dataset.memberRole, select.value); });
+  $('#members-body').addEventListener('change', (event) => {
+    const select = event.target.closest('[data-member-role]');
+    if (select) changeMemberRole(select.dataset.memberRole, select.value);
+    const commission = event.target.closest('[data-member-commission]');
+    if (commission) changeMemberCommission(commission.dataset.memberCommission, commission.value);
+  });
   $('#members-body').addEventListener('click', (event) => { const button = event.target.closest('[data-member-active]'); if (button) toggleMember(button.dataset.memberActive); });
 }
 
 bindEvents();
 if (previewMode) {
   state.user = { id: 'preview-admin', name: '林航', role: 'admin', title: '外贸业务总监', avatarUrl: '' };
+  state.rates = {
+    monthStart: { date: '2026-08-03', rate: 6.7476 },
+    today: { date: '2026-08-10', rate: 6.7439 }
+  };
+  state.performance = {
+    month: '2026-08',
+    summary: { orderCount: 3, receivedCny: 579480, profitCny: 142632, commissionCny: 4516.46, completedCommissionCny: 2680.20 },
+    warnings: [],
+    items: [
+      { id: 'preview-1', orderNo: 'SO-260810-A1F92C', orderDate: '2026-08-10', customerName: 'Nordhavn Living', ownerName: '林航', currency: 'USD', orderAmount: 28640, receivedCny: 193420, convertedOrderAmountCny: 193174, productCost: 17800, freight: 1320, profitCny: 64433, commissionRatePercent: 3.2, commissionCny: 2061.86, freightForwarder: '宁波远洋', isCompleted: false },
+      { id: 'preview-2', orderNo: 'SO-260809-8C70D4', orderDate: '2026-08-09', customerName: 'Maison Épure', ownerName: '周黎', currency: 'USD', orderAmount: 15820, receivedCny: 106860, convertedOrderAmountCny: 106704, productCost: 9600, freight: 880, profitCny: 36171, commissionRatePercent: 2.5, commissionCny: 904.28, freightForwarder: '海程国际', isCompleted: true },
+      { id: 'preview-3', orderNo: 'SO-260805-3D8E11', orderDate: '2026-08-05', customerName: 'Atelier Form', ownerName: '林航', currency: 'USD', orderAmount: 42100, receivedCny: 279200, convertedOrderAmountCny: 284080, productCost: 26800, freight: 2300, profitCny: 42028, commissionRatePercent: 3.2, commissionCny: 1344.90, freightForwarder: '迅达货运', isCompleted: true }
+    ]
+  };
   state.orders = [
     { id: 'preview-1', orderNo: 'SO-260810-A1F92C', customerName: 'Nordhavn Living', destination: '丹麦', deadline: '2026-08-12', currency: 'USD', totalAmount: 28640, ownerName: '林航', status: 'purchasing', productCount: 3, productSummary: { sku: 'BLK-072', name: '云朵绒毯', variant: '奶油白' } },
     { id: 'preview-2', orderNo: 'SO-260809-8C70D4', customerName: 'Maison Épure', destination: '法国', deadline: '2026-08-14', currency: 'USD', totalAmount: 15820, ownerName: '周黎', status: 'purchased', productCount: 2, productSummary: { sku: 'CER-118', name: '手工陶瓷餐具', variant: '雾蓝釉' } },
@@ -821,6 +939,7 @@ if (previewMode) {
     { id: 'preview-4', orderNo: 'SO-260810-F09A27', customerName: 'North & Pine', destination: '加拿大', deadline: '2026-08-11', currency: 'USD', totalAmount: 9340, ownerName: '唐允', status: 'pending_purchase', productCount: 1, productSummary: { sku: 'BAG-220', name: '帆布旅行包', variant: '橄榄绿' } }
   ];
   enterApp();
+  renderExchangeRates();
 } else {
   authenticate();
 }

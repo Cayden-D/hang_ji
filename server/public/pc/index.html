@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="航迹协作 PC 工作台" />
     <title>航迹协作 · PC 工作台</title>
-    <script type="module" crossorigin src="/pc/assets/index-YJBEHTT6.js"></script>
-    <link rel="stylesheet" crossorigin href="/pc/assets/index-D0DHau-Z.css">
+    <script type="module" crossorigin src="/pc/assets/index-DAkrHbbM.js"></script>
+    <link rel="stylesheet" crossorigin href="/pc/assets/index-CSHyorbz.css">
   </head>
   <body>
     <div id="auth-screen" class="auth-screen">
@@ -29,6 +29,7 @@
         <nav class="nav" aria-label="主导航">
           <button class="nav-item active" data-view="dashboard"><span>◫</span>总览</button>
           <button class="nav-item" data-view="orders"><span>≡</span>订单中心</button>
+          <button class="nav-item sales-only" data-view="performance"><span>¥</span>月度业绩</button>
           <button class="nav-item" data-view="tasks"><span>✓</span>我的待办<i id="task-badge">0</i></button>
           <button class="nav-item admin-only" data-view="admin"><span>◎</span>管理后台</button>
         </nav>
@@ -73,6 +74,13 @@
             </div>
           </div>
 
+          <div id="exchange-tape" class="exchange-tape">
+            <div><span>USD / CNY</span><strong>本月汇率航标</strong></div>
+            <div><small>本月 1 日</small><b id="rate-month-start">读取中</b><em id="rate-month-date">—</em></div>
+            <div><small>今日</small><b id="rate-today">读取中</b><em id="rate-today-date">—</em></div>
+            <div class="rate-change"><small>月内变化</small><b id="rate-change">—</b><em>Frankfurter</em></div>
+          </div>
+
           <div class="metric-grid">
             <article class="metric urgent"><span>临期订单</span><strong id="metric-urgent">0</strong><small>3 天内需出货</small></article>
             <article class="metric"><span>采购处理中</span><strong id="metric-purchase">0</strong><small>含待采购与部分完成</small></article>
@@ -115,6 +123,23 @@
           </div>
         </section>
 
+        <section id="view-performance" class="view">
+          <div class="performance-toolbar">
+            <div><p class="eyebrow">MONTHLY COMMISSION LEDGER</p><h3>月度业绩与提成</h3></div>
+            <label><span>统计月份</span><input id="performance-month" type="month" /></label>
+          </div>
+          <div class="performance-summary">
+            <article><span>订单数</span><strong id="performance-orders">0</strong><small>当月创建订单</small></article>
+            <article><span>到账人民币</span><strong id="performance-received">¥0.00</strong><small>含未填写时的汇率估算</small></article>
+            <article><span>总利润</span><strong id="performance-profit">¥0.00</strong><small>到账 − 成本 − 运费</small></article>
+            <article class="commission-card"><span>已完结提成</span><strong id="performance-commission">¥0.00</strong><small id="performance-commission-note">全部订单预计 ¥0.00</small></article>
+          </div>
+          <div class="table-shell performance-table-shell">
+            <table class="performance-table"><thead><tr><th>客户 / 订单</th><th class="admin-only">业务员</th><th>订单金额</th><th>到账人民币</th><th>商品成本</th><th>运费</th><th>总利润</th><th>总提成</th><th>货代公司</th><th>是否完结</th></tr></thead><tbody id="performance-body"></tbody></table>
+          </div>
+          <div id="performance-warning" class="performance-warning is-hidden"></div>
+        </section>
+
         <section id="view-admin" class="view">
           <div class="panel admin-panel admin-data-panel">
             <div class="panel-head"><div><p class="eyebrow">DATA OPERATIONS</p><h3>订单数据管理</h3></div><button id="admin-create-order" class="button primary">＋ 新增订单</button></div>
@@ -122,7 +147,7 @@
           </div>
           <div class="panel admin-panel">
             <div class="panel-head"><div><p class="eyebrow">ACCESS CONTROL</p><h3>成员与协作角色</h3></div><button id="admin-refresh" class="button secondary">刷新成员</button></div>
-            <div class="table-shell"><table class="member-table"><thead><tr><th>成员</th><th>钉钉 UserId</th><th>业务角色</th><th>登录状态</th><th>账号状态</th></tr></thead><tbody id="members-body"></tbody></table></div>
+            <div class="table-shell"><table class="member-table"><thead><tr><th>成员</th><th>钉钉 UserId</th><th>业务角色</th><th>提成比例</th><th>登录状态</th><th>账号状态</th></tr></thead><tbody id="members-body"></tbody></table></div>
           </div>
         </section>
       </main>
@@ -142,7 +167,7 @@
           <section class="form-section"><h4>客户与交付</h4><div class="form-grid cols-3">
             <label><span>客户名称 *</span><input name="customerName" required /></label><label><span>联系方式</span><input name="customerContact" /></label><label><span>目的国家/地区</span><input name="destination" /></label>
             <label class="span-2"><span>收货地址</span><input name="shippingAddress" /></label><label><span>最晚出货日 *</span><input name="deadline" type="date" required /></label>
-            <label><span>付款方式</span><select name="paymentMethod"><option>T/T</option><option>L/C</option><option>D/P</option><option>D/A</option><option>信保全款</option><option>OTHER</option></select></label><label><span>运费 USD</span><input name="freight" type="number" min="0" step="0.01" value="0" /></label><label><span>订单备注</span><input name="note" /></label>
+            <label><span>付款方式</span><select name="paymentMethod"><option>T/T</option><option>L/C</option><option>D/P</option><option>D/A</option><option>信保全款</option><option>OTHER</option></select></label><label><span>运费 USD</span><input name="freight" type="number" min="0" step="0.01" value="0" /></label><label><span>到账人民币（选填）</span><input name="receivedCny" type="number" min="0" step="0.01" /></label><label><span>订单备注</span><input name="note" /></label>
           </div></section>
           <section class="form-section"><div class="section-title"><h4>产品与款式</h4><div class="section-actions"><input id="pi-file-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden /><button id="import-pi" type="button" class="button secondary">⇧ 导入 PI 报价单</button><button id="add-product" type="button" class="button secondary">＋ 添加产品</button></div></div><div id="product-editors"></div></section>
           <section class="form-section"><h4>付款凭证</h4><label class="upload-zone"><input id="payment-files" type="file" accept="image/*" multiple /><span>＋ 选择付款凭证</span><small>图片将上传至阿里云 OSS，最多 9 张</small></label><div id="payment-previews" class="file-previews"></div></section>
@@ -159,7 +184,8 @@
             <label><span>客户名称 *</span><input name="customerName" required /></label><label><span>联系方式</span><input name="customerContact" /></label><label><span>负责人 *</span><select name="ownerUserId" id="admin-order-owner" required></select></label>
             <label class="span-2"><span>收货地址</span><input name="shippingAddress" /></label><label><span>目的国家/地区</span><input name="destination" /></label>
             <label><span>最晚出货日 *</span><input name="deadline" type="date" required /></label><label><span>付款方式</span><select name="paymentMethod"><option>T/T</option><option>L/C</option><option>D/P</option><option>D/A</option><option>信保全款</option><option>OTHER</option></select></label><label><span>币种</span><input name="currency" maxlength="3" value="USD" required /></label>
-            <label><span>运费</span><input name="freight" type="number" min="0" step="0.01" /></label><label class="span-2"><span>备注</span><input name="note" /></label>
+            <label><span>运费</span><input name="freight" type="number" min="0" step="0.01" /></label><label><span>到账人民币</span><input name="receivedCny" type="number" min="0" step="0.01" placeholder="未到账可留空" /></label><label><span>结算汇率 USD/CNY</span><input name="exchangeRate" type="number" min="0.000001" step="0.000001" placeholder="默认订单日汇率" /></label>
+            <label class="completion-check"><input name="isCompleted" type="checkbox" /><span>该订单财务已完结并冻结提成比例</span></label><label class="span-2"><span>备注</span><input name="note" /></label>
           </div></section>
           <section class="form-section"><div class="section-title"><h4>产品数据</h4><button id="admin-add-product" type="button" class="button secondary">＋ 添加产品</button></div><div id="admin-product-editors"></div></section>
         </div>

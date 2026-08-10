@@ -90,6 +90,7 @@ Page({
     loading: true,
     submitting: false,
     uploading: false,
+    importingPi: false,
     apiError: '',
     showShipment: false,
     showUserAdmin: false,
@@ -289,7 +290,7 @@ Page({
   },
 
   choosePayment() {
-    const values = ['T/T', 'L/C', 'D/P'];
+    const values = ['T/T', 'L/C', 'D/P', 'D/A', '信保全款', 'OTHER'];
     const next = (values.indexOf(this.data.form.payment) + 1) % values.length;
     this.setData({ 'form.payment': values[next] });
   },
@@ -320,6 +321,49 @@ Page({
       products[index].totalPrice = (quantity * unitPrice).toFixed(2);
     }
     this.setData({ 'form.products': products });
+  },
+
+  importPi() {
+    if (this.data.importingPi) return;
+    if (typeof dd === 'undefined' || !dd.chooseFile || !dd.uploadFile) {
+      this.showToast('当前钉钉版本不支持选择 Excel，请在 PC 端管理页面导入');
+      return;
+    }
+    dd.chooseFile({
+      count: 1,
+      extension: ['xlsx'],
+      success: async (result) => {
+        const files = result.tempFiles || result.files || [];
+        const paths = result.apFilePaths || result.tempFilePaths || result.filePaths || [];
+        const selected = files[0] || {};
+        const filePath = selected.path || selected.tempFilePath || paths[0];
+        const fileName = selected.name || result.fileName || 'PI.xlsx';
+        if (!filePath) return this.showToast('没有取得所选文件的本地路径');
+        this.setData({ importingPi: true });
+        try {
+          const response = await api.uploadPi(filePath, fileName);
+          const imported = response.imported;
+          const products = imported.products.map((item) => Object.assign(emptyProduct(), item, {
+            totalPrice: (Number(item.quantity || 0) * Number(item.unitPrice || 0)).toFixed(2)
+          }));
+          const update = { 'form.products': products };
+          if (imported.customerName) update['form.customer'] = imported.customerName;
+          if (imported.quotationDate && !this.data.form.note) {
+            update['form.note'] = 'PI 报价日期：' + imported.quotationDate + '；来源文件：' + imported.fileName;
+          }
+          this.setData(update);
+          this.showToast('已导入 ' + products.length + ' 款产品' + (imported.warnings && imported.warnings.length ? '，请补充缺少字段' : ''));
+        } catch (error) {
+          console.error('PI 导入失败', error);
+          this.showToast('PI 导入失败：' + error.message);
+        } finally {
+          this.setData({ importingPi: false });
+        }
+      },
+      fail: (error) => {
+        if (!/cancel/i.test(error.errorMessage || error.errMsg || '')) this.showToast('选择 PI 文件失败');
+      }
+    });
   },
 
   chooseAndUploadImages({ remaining, category, onComplete }) {
@@ -410,14 +454,14 @@ Page({
   },
 
   async createOrder() {
-    if (this.data.uploading) {
-      this.showToast('请等待图片上传完成');
+    if (this.data.uploading || this.data.importingPi) {
+      this.showToast('请等待文件处理完成');
       return;
     }
     const f = this.data.form;
-    const invalidProduct = f.products.some((item) => !item.sku || !item.name || !item.variant || !item.quantity);
+    const invalidProduct = f.products.some((item) => !item.name || !item.variant || !item.quantity);
     if (!f.customer || invalidProduct) {
-      this.showToast('请填写客户及每条产品的货号、名称、款式和数量');
+      this.showToast('请填写客户及每条产品的名称、款式和数量');
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.deadline)) {

@@ -13,7 +13,7 @@ const attachment = z.object({
 });
 
 const product = z.object({
-  sku: z.string().trim().min(1).max(128),
+  sku: z.string().trim().max(128).optional().default(''),
   name: z.string().trim().min(1).max(255),
   variant: z.string().trim().min(1).max(255),
   unitsPerCarton: z.coerce.number().int().nonnegative(),
@@ -32,7 +32,7 @@ export const createOrderSchema = z.object({
   shippingAddress: z.string().trim().max(1000).optional().nullable(),
   destination: z.string().trim().max(255).optional().nullable(),
   deadline: date,
-  paymentMethod: z.enum(['T/T', 'L/C', 'D/P', 'D/A', 'OTHER']),
+  paymentMethod: z.enum(['T/T', 'L/C', 'D/P', 'D/A', '信保全款', 'OTHER']),
   currency: z.string().trim().toUpperCase().length(3).default('USD'),
   freight: money.default(0),
   note: z.string().trim().max(5000).optional().nullable(),
@@ -65,7 +65,7 @@ export const shipmentSchema = z.object({
 
 const adminProduct = z.object({
   id: z.string().uuid().optional(),
-  sku: z.string().trim().min(1).max(128),
+  sku: z.string().trim().max(128).optional().default(''),
   name: z.string().trim().min(1).max(255),
   variant: z.string().trim().min(1).max(255),
   unitsPerCarton: z.coerce.number().int().nonnegative(),
@@ -84,7 +84,7 @@ export const adminReplaceOrderSchema = z.object({
   shippingAddress: z.string().trim().max(1000).optional().nullable(),
   destination: z.string().trim().max(255).optional().nullable(),
   deadline: date,
-  paymentMethod: z.enum(['T/T', 'L/C', 'D/P', 'D/A', 'OTHER']),
+  paymentMethod: z.enum(['T/T', 'L/C', 'D/P', 'D/A', '信保全款', 'OTHER']),
   currency: z.string().trim().toUpperCase().length(3),
   freight: money,
   note: z.string().trim().max(5000).optional().nullable(),

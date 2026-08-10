@@ -43,6 +43,16 @@ try {
     if (!existing.has(name)) await connection.query(`ALTER TABLE users ADD COLUMN ${name} ${definition}`);
   }
 
+  const [productRows] = await connection.execute(
+    `SELECT COLUMN_NAME, IS_NULLABLE FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'products' AND COLUMN_NAME = 'sku'`,
+    [process.env.DB_NAME || 'hangji']
+  );
+  if (productRows[0]?.IS_NULLABLE === 'NO') {
+    // 空货号写为 NULL，使同一订单内多个未填写货号的产品不会触发唯一索引冲突。
+    await connection.query('ALTER TABLE products MODIFY sku VARCHAR(128) NULL');
+  }
+
   const [attachmentRows] = await connection.execute(
     `SELECT COLUMN_NAME, IS_NULLABLE FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'attachments'`,

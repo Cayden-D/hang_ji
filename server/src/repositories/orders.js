@@ -19,7 +19,7 @@ const mapAttachment = (row) => {
 
 const mapProduct = (row) => ({
   id: row.id,
-  sku: row.sku,
+  sku: row.sku || '',
   name: row.name,
   variant: row.variant,
   unitsPerCarton: row.units_per_carton,

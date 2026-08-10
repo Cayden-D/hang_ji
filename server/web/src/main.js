@@ -60,7 +60,7 @@ const setError = (message = '') => {
 
 const setBusy = (busy, label) => {
   state.busy = busy;
-  ['#create-button', '#save-order', '#save-shipment', '#refresh-button'].forEach((selector) => {
+  ['#create-button', '#save-order', '#save-shipment', '#refresh-button', '#import-pi'].forEach((selector) => {
     const button = $(selector);
     if (button) button.disabled = busy;
   });
@@ -399,8 +399,8 @@ function renderDetail() {
   $('#detail-status').className = `status-pill ${meta.className}`;
   $('#detail-status').textContent = meta.label;
   const productMarkup = (order.products || []).map((product) => `<article class="detail-product">
-    <div class="detail-product-image">${product.images?.[0]?.url ? `<img src="${escapeHtml(product.images[0].url)}" alt="" />` : escapeHtml(product.sku.slice(0, 5))}</div>
-    <div><h5>${escapeHtml(product.name)} / ${escapeHtml(product.variant)}</h5><p>${escapeHtml(product.sku)} · ${product.quantity} 件 · ${product.cartons} 箱<br />${product.weight} kg · ${product.volume} m³ · 装箱 ${product.unitsPerCarton} 件</p></div>
+    <div class="detail-product-image">${product.images?.[0]?.url ? `<img src="${escapeHtml(product.images[0].url)}" alt="" />` : escapeHtml(product.sku?.slice(0, 5) || '产品')}</div>
+    <div><h5>${escapeHtml(product.name)} / ${escapeHtml(product.variant)}</h5><p>${product.sku ? `${escapeHtml(product.sku)} · ` : ''}${product.quantity} 件 · ${product.cartons} 箱<br />${product.weight} kg · ${product.volume} m³ · 装箱 ${product.unitsPerCarton} 件</p></div>
     <aside><strong>USD ${money(product.totalPrice)}</strong>${product.purchaseStatus === 'completed'
       ? '<span class="status-pill purchased">已采购</span>'
       : canPurchase() ? `<button data-purchase-product="${product.id}">确认此款采购</button>` : '<span class="status-pill">待采购</span>'}</aside>
@@ -468,7 +468,7 @@ function renderProductEditors() {
   $('#product-editors').innerHTML = state.productDrafts.map((product, index) => `<article class="product-editor" data-index="${index}">
     <div class="product-editor-head"><strong>产品 ${index + 1}${product.name ? ` · ${escapeHtml(product.name)}` : ''}</strong>${state.productDrafts.length > 1 ? `<button type="button" class="remove-product" data-remove-product="${index}">删除此产品</button>` : ''}</div>
     <div class="product-fields">
-      ${productInput(index, 'sku', '货号 *', product.sku, 'wide')}${productInput(index, 'name', '名称 *', product.name, 'wide')}${productInput(index, 'variant', '颜色 / 款式 *', product.variant, 'wide')}
+      ${productInput(index, 'sku', '货号（选填）', product.sku, 'wide')}${productInput(index, 'name', '名称 *', product.name, 'wide')}${productInput(index, 'variant', '颜色 / 款式 *', product.variant, 'wide')}
       ${productInput(index, 'unitsPerCarton', '装箱数', product.unitsPerCarton, '', 'number')}${productInput(index, 'cartons', '箱数', product.cartons, '', 'number')}${productInput(index, 'weight', '重量 kg', product.weight, '', 'number', '0.01')}${productInput(index, 'volume', '体积 m³', product.volume, '', 'number', '0.001')}${productInput(index, 'quantity', '数量 *', product.quantity, '', 'number')}${productInput(index, 'unitPrice', '单价 USD', product.unitPrice, '', 'number', '0.01')}
       ${productInput(index, 'purchaseCost', '采购成本 USD', product.purchaseCost, '', 'number', '0.01')}
       <label class="product-upload"><span>产品图片 · ${product.images.length}/9</span><input type="file" accept="image/*" multiple data-product-files="${index}" />${miniPreviews(product.images)}</label>
@@ -511,8 +511,8 @@ async function submitOrder(event) {
   event.preventDefault();
   if (state.busy) return;
   const form = new FormData(event.currentTarget);
-  const invalid = state.productDrafts.some((item) => !item.sku.trim() || !item.name.trim() || !item.variant.trim() || Number(item.quantity) <= 0);
-  if (invalid) return toast('请填写每款产品的货号、名称、颜色款式和数量');
+  const invalid = state.productDrafts.some((item) => !item.name.trim() || !item.variant.trim() || Number(item.quantity) <= 0);
+  if (invalid) return toast('请填写每款产品的名称、颜色款式和数量');
   const data = {
     customerName: form.get('customerName'), customerContact: form.get('customerContact') || null,
     shippingAddress: form.get('shippingAddress') || null, destination: form.get('destination') || null,
@@ -532,6 +532,34 @@ async function submitOrder(event) {
     toast(`订单 ${result.order.orderNo} 已创建`);
   } catch (error) { toast(`创建失败：${error.message}`); }
   finally { $('#save-order').textContent = '创建并同步采购'; setBusy(false); }
+}
+
+async function importPiFile(file) {
+  if (!file || state.busy) return;
+  if (!/\.xlsx$/i.test(file.name)) return toast('请选择 .xlsx 格式的 PI 报价单');
+  const formData = new FormData();
+  formData.append('file', file);
+  setBusy(true);
+  $('#import-pi').textContent = '正在解析 PI…';
+  try {
+    const result = await api('/api/imports/pi', { method: 'POST', body: formData });
+    const imported = result.imported;
+    state.productDrafts = imported.products.map((product) => ({ ...emptyProduct(), ...product }));
+    const form = $('#create-form');
+    if (imported.customerName) form.elements.customerName.value = imported.customerName;
+    if (imported.quotationDate && !form.elements.note.value.trim()) {
+      form.elements.note.value = `PI 报价日期：${imported.quotationDate}；来源文件：${imported.fileName}`;
+    }
+    renderProductEditors();
+    const warning = imported.warnings?.length ? `；${imported.warnings[0]}` : '';
+    toast(`已从 PI 导入 ${imported.products.length} 款产品${warning}`);
+  } catch (error) {
+    toast(`PI 导入失败：${error.message}`);
+  } finally {
+    $('#import-pi').textContent = '⇧ 导入 PI 报价单';
+    $('#pi-file-input').value = '';
+    setBusy(false);
+  }
 }
 
 function openShipment(mode = 'create') {
@@ -606,7 +634,7 @@ function renderAdminProductEditors() {
   $('#admin-product-editors').innerHTML = state.adminEditProducts.map((product, index) => `<article class="admin-product-editor" data-admin-product-index="${index}">
     <div class="product-editor-head"><strong>产品 ${index + 1}${product.id ? '' : ' · 新增'}</strong>${state.adminEditProducts.length > 1 ? `<button type="button" class="remove-product" data-admin-remove-product="${index}">删除</button>` : ''}</div>
     <div class="admin-product-grid">
-      ${adminProductInput(index, 'sku', '货号 *', product.sku, 'wide')}${adminProductInput(index, 'name', '名称 *', product.name, 'wide')}${adminProductInput(index, 'variant', '颜色 / 款式 *', product.variant, 'wide')}
+      ${adminProductInput(index, 'sku', '货号（选填）', product.sku, 'wide')}${adminProductInput(index, 'name', '名称 *', product.name, 'wide')}${adminProductInput(index, 'variant', '颜色 / 款式 *', product.variant, 'wide')}
       ${adminProductInput(index, 'unitsPerCarton', '装箱数', product.unitsPerCarton, '', 'number')}${adminProductInput(index, 'cartons', '箱数', product.cartons, '', 'number')}${adminProductInput(index, 'weight', '重量 kg', product.weight, '', 'number', '.001')}${adminProductInput(index, 'volume', '体积 m³', product.volume, '', 'number', '.0001')}${adminProductInput(index, 'quantity', '数量', product.quantity, '', 'number')}${adminProductInput(index, 'unitPrice', '单价', product.unitPrice, '', 'number', '.01')}
       ${adminProductInput(index, 'purchaseCost', '采购成本', product.purchaseCost, '', 'number', '.01')}
       <label><span>采购状态</span><select data-admin-product-index="${index}" data-admin-product-field="purchaseStatus"><option value="pending" ${product.purchaseStatus === 'pending' ? 'selected' : ''}>待采购</option><option value="completed" ${product.purchaseStatus === 'completed' ? 'selected' : ''}>已采购</option></select></label>
@@ -619,8 +647,8 @@ async function saveAdminOrder(event) {
   event.preventDefault();
   if (state.busy || !state.currentDetail) return;
   const form = new FormData(event.currentTarget);
-  const invalid = state.adminEditProducts.some((item) => !String(item.sku).trim() || !String(item.name).trim() || !String(item.variant).trim() || Number(item.quantity) <= 0);
-  if (invalid) return toast('产品货号、名称、款式和数量不能为空');
+  const invalid = state.adminEditProducts.some((item) => !String(item.name).trim() || !String(item.variant).trim() || Number(item.quantity) <= 0);
+  if (invalid) return toast('产品名称、款式和数量不能为空');
   const body = {
     customerName: form.get('customerName'), customerContact: form.get('customerContact') || null,
     shippingAddress: form.get('shippingAddress') || null, destination: form.get('destination') || null,
@@ -743,6 +771,8 @@ function bindEvents() {
     if (event.target.closest('[data-admin-delete-shipment]')) deleteAdminShipment();
   });
   $('#add-product').addEventListener('click', () => { state.productDrafts.push(emptyProduct()); renderProductEditors(); });
+  $('#import-pi').addEventListener('click', () => $('#pi-file-input').click());
+  $('#pi-file-input').addEventListener('change', (event) => importPiFile(event.target.files?.[0]));
   $('#product-editors').addEventListener('input', (event) => {
     const input = event.target.closest('[data-product-field]'); if (!input) return;
     state.productDrafts[Number(input.dataset.productIndex)][input.dataset.productField] = input.value;

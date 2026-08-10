@@ -212,6 +212,10 @@
 .add-product > text { font-size: 38rpx; font-weight: 300; }
 .add-product view text { display: block; font-size: 21rpx; font-weight: 800; }
 .add-product view text + text { font-size: 17rpx; color: #788D94; font-weight: 400; margin-top: 3rpx; }
+.pi-import-card { min-height: 94rpx; padding: 0 22rpx; margin: 0 0 18rpx; border: 2rpx solid #B8D3DA; border-radius: 13rpx; background: #F2F8FA; display: flex; align-items: center; gap: 16rpx; color: #155D75; }
+.pi-import-card > text { font-size: 34rpx; }
+.pi-import-card view text { display: block; font-size: 21rpx; font-weight: 800; }
+.pi-import-card view text + text { margin-top: 4rpx; color: #788D94; font-size: 17rpx; font-weight: 400; }
 .select-value { display: flex; justify-content: space-between; font-size: 25rpx; font-weight: 700; }
 .select-value text { color: #155D75; font-size: 20rpx; font-weight: 400; }
 .upload-box { height: 132rpx; border: 2rpx dashed #BFCED2; border-radius: 13rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #597078; }

@@ -24,6 +24,16 @@ test('order accepts multiple products and OSS metadata', () => {
   assert.equal(result.data.products[0].images[0].objectKey, 'hangji/product/2026/08/file-1.jpg');
 });
 
+test('order accepts trust assurance full payment and an empty SKU', () => {
+  const parsed = createOrderSchema.parse({
+    ...validOrder,
+    paymentMethod: '信保全款',
+    products: [{ ...validOrder.products[0], sku: '' }]
+  });
+  assert.equal(parsed.paymentMethod, '信保全款');
+  assert.equal(parsed.products[0].sku, '');
+});
+
 test('shipment rejects arrival before shipment', () => {
   const result = shipmentSchema.safeParse({
     logisticsCompany: 'DHL', trackingNo: '123', shippedOn: '2026-08-20', estimatedArrivalOn: '2026-08-19'

@@ -80,7 +80,7 @@
         <view class="order-head"><text class="order-id">{{item.orderNo}}</text><text class="pill pill-{{item.status}}">{{item.statusText}}</text></view>
         <view class="customer-name">{{item.customer}}</view>
         <view class="destination">{{item.country}} · 负责人 {{item.owner}}</view>
-        <view class="product-row"><view class="product-thumb">{{item.thumb}}</view><view class="product-info"><text>{{item.product}}</text><text>{{item.sku}} · {{item.quantity}} 件</text></view><view class="amount"><text>{{item.currency}}</text>{{item.amount}}</view></view>
+        <view class="product-row"><view class="product-thumb">{{item.thumb}}</view><view class="product-info"><text>{{item.product}}</text><text>{{item.sku ? item.sku + ' · ' : ''}}{{item.quantity}} 件</text></view><view class="amount"><text>{{item.currency}}</text>{{item.amount}}</view></view>
         <view class="flow-track">
           <view class="flow-fill" style="width: {{item.progress}}%"></view>
           <view class="flow-node {{index <= item.activeStep ? 'done' : ''}}" a:for="{{item.steps}}" a:for-item="step" a:for-index="index"><i></i><text>{{step}}</text></view>
@@ -101,7 +101,7 @@
           <view class="task-accent accent-{{item.status}}"></view>
           <view class="task-head"><text>{{item.status === 'ready' ? '等待发货' : '等待采购确认'}}</text><text>{{item.deadline}}</text></view>
           <view class="task-title">{{item.product}}</view>
-          <view class="task-sub">{{item.customer}} · {{item.sku}}</view>
+          <view class="task-sub">{{item.customer}}{{item.sku ? ' · ' + item.sku : ''}}</view>
           <view class="task-data"><view><text>数量</text><text>{{item.quantity}} 件</text></view><view><text>{{item.status === 'ready' ? '目的港' : '采购预算'}}</text><text>{{item.status === 'ready' ? item.country : item.currency + ' ' + item.amount}}</text></view></view>
           <button class="task-button {{item.status === 'ready' ? 'button-dark' : ''}}" data-id="{{item.id}}" catchTap="advanceOrder">{{item.status === 'ready' ? '确认打包并发货' : '全部采购完成'}}</button>
         </view>
@@ -156,6 +156,7 @@
         <view class="field"><text>国家 / 目的港</text><input data-field="country" value="{{form.country}}" onInput="updateForm" placeholder="例如 德国 · 汉堡" /></view>
         <view class="field"><text>最晚出货日 *</text><input data-field="deadline" value="{{form.deadline}}" onInput="updateForm" placeholder="YYYY-MM-DD，例如 2026-08-18" /></view>
         <view class="form-section-title product-section-head"><text>产品明细 · {{form.products.length}} 款</text><text>每个颜色款式单独一条</text></view>
+        <view class="pi-import-card" onTap="importPi"><text>⇧</text><view><text>{{importingPi ? '正在解析 PI…' : '导入 PI 报价单'}}</text><text>自动读取客户、产品、规格、数量、单价和内嵌图片</text></view></view>
         <view class="product-editor" a:for="{{form.products}}" a:for-item="product" a:for-index="productIndex">
           <view class="product-editor-head"><view><text>产品 {{productIndex + 1}}</text><text>{{product.name || '未命名产品'}}{{product.variant ? ' / ' + product.variant : ''}}</text></view><text class="remove-product" data-index="{{productIndex}}" onTap="removeProduct">删除</text></view>
           <view class="product-upload" data-index="{{productIndex}}" onTap="uploadProductImages">
@@ -171,7 +172,7 @@
               </view>
             </scroll-view>
           </view>
-          <view class="field-row"><view class="field half"><text>货号 *</text><input data-index="{{productIndex}}" data-field="sku" value="{{product.sku}}" onInput="updateProductField" placeholder="SKU-001" /></view><view class="field half"><text>产品名称 *</text><input data-index="{{productIndex}}" data-field="name" value="{{product.name}}" onInput="updateProductField" placeholder="产品名称" /></view></view>
+          <view class="field-row"><view class="field half"><text>货号（选填）</text><input data-index="{{productIndex}}" data-field="sku" value="{{product.sku}}" onInput="updateProductField" placeholder="可不填写" /></view><view class="field half"><text>产品名称 *</text><input data-index="{{productIndex}}" data-field="name" value="{{product.name}}" onInput="updateProductField" placeholder="产品名称" /></view></view>
           <view class="field"><text>颜色款式 *</text><input data-index="{{productIndex}}" data-field="variant" value="{{product.variant}}" onInput="updateProductField" placeholder="例如 奶油白 / 加厚款" /></view>
           <view class="field-row"><view class="field half"><text>装箱数（件/箱）</text><input type="number" data-index="{{productIndex}}" data-field="unitsPerCarton" value="{{product.unitsPerCarton}}" onInput="updateProductField" placeholder="0" /></view><view class="field half"><text>箱数</text><input type="number" data-index="{{productIndex}}" data-field="cartons" value="{{product.cartons}}" onInput="updateProductField" placeholder="0" /></view></view>
           <view class="field-row"><view class="field half"><text>重量（kg）</text><input type="digit" data-index="{{productIndex}}" data-field="weight" value="{{product.weight}}" onInput="updateProductField" placeholder="0.00" /></view><view class="field half"><text>体积（m³）</text><input type="digit" data-index="{{productIndex}}" data-field="volume" value="{{product.volume}}" onInput="updateProductField" placeholder="0.00" /></view></view>
@@ -186,7 +187,7 @@
         <view class="shipment-files" a:if="{{form.paymentAttachments.length}}"><view a:for="{{form.paymentAttachments}}" a:for-item="attachment" a:for-index="index" a:key="objectKey"><text>{{attachment.fileName}}</text><text data-index="{{index}}" catchTap="removePaymentAttachment">×</text></view></view>
         <view class="form-space"></view>
       </scroll-view>
-      <view class="sheet-submit"><button disabled="{{submitting || uploading}}" onTap="createOrder">{{uploading ? '图片上传中…' : (submitting ? '正在创建…' : '创建并同步采购')}}</button></view>
+      <view class="sheet-submit"><button disabled="{{submitting || uploading || importingPi}}" onTap="createOrder">{{importingPi ? 'PI 解析中…' : (uploading ? '图片上传中…' : (submitting ? '正在创建…' : '创建并同步采购'))}}</button></view>
     </view>
   </view>
 
@@ -197,11 +198,11 @@
       <view class="empty detail-loading" a:if="{{detailLoading}}"><text>正在读取订单详情</text></view>
       <scroll-view a:else scroll-y class="detail-products-scroll">
         <view class="detail-product-count">产品明细 · {{detail.productCount}} 款</view>
-        <view class="detail-product multi-detail-product" a:for="{{detail.products}}" a:for-item="product" a:for-index="productIndex" a:key="sku">
-          <view class="detail-thumb"><image a:if="{{product.images.length && product.images[0].url}}" src="{{product.images[0].url}}" mode="aspectFill" /><text a:else>{{product.sku}}</text></view>
+        <view class="detail-product multi-detail-product" a:for="{{detail.products}}" a:for-item="product" a:for-index="productIndex" a:key="id">
+          <view class="detail-thumb"><image a:if="{{product.images.length && product.images[0].url}}" src="{{product.images[0].url}}" mode="aspectFill" /><text a:else>{{product.sku || '产品'}}</text></view>
           <view class="detail-product-main">
             <text>{{product.name}} / {{product.variant}}</text>
-            <text>{{product.sku}} · {{product.quantity}} 件 · USD {{product.totalPrice}}</text>
+            <text>{{product.sku ? product.sku + ' · ' : ''}}{{product.quantity}} 件 · USD {{product.totalPrice}}</text>
             <view class="detail-spec-grid">
               <view><text>装箱数</text><text>{{product.unitsPerCarton}} 件/箱</text></view>
               <view><text>箱数</text><text>{{product.cartons}} 箱</text></view>

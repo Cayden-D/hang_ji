@@ -225,6 +225,7 @@ tbody tr:hover { background: #f8fbfb; }
 .form-section + .form-section { margin-top: 22px; border-top: 1px solid var(--line); }
 .form-section h4, .section-title h4 { margin: 0 0 15px; font-family: "Songti SC", serif; }
 .section-title { display: flex; justify-content: space-between; align-items: center; }
+.section-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .form-grid { display: grid; gap: 14px; }
 .form-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
 .form-grid.cols-2 { grid-template-columns: repeat(2, 1fr); margin-top: 20px; }

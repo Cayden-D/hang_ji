@@ -8,6 +8,7 @@
 - `/pc/` 桌面端工作台，支持钉钉 PC 免登、订单、采购、发货、OSS 图片和管理员数据维护
 - 管理后台打开或刷新成员列表时，会分页同步钉钉根部门（`dept_id=1`）直属员工；需要应用开通“通讯录部门成员读权限”
 - 钉钉返回 `admin=true` 的员工自动成为系统管理员；其他新员工默认为业务员，之后可在管理后台调整系统角色
+- 新建订单支持导入 `.xlsx` PI 报价单，自动识别客户、产品、规格、体积、数量、单价及嵌入式产品图片；图片会转存至 OSS
 - 应用 accessToken 内存缓存及提前刷新
 - 业务、采购、物流、管理员四类服务端权限
 - 一个订单包含多个产品和颜色款式
@@ -60,6 +61,8 @@ curl http://127.0.0.1:3000/health
 
 生产环境应使用 Nginx 和 HTTPS，示例见 `nginx/hangji.conf`。部署完成后，把 API 域名加入钉钉小程序的 HTTP 安全域名。
 
+PI 导入接口允许最大 20 MB 的 `.xlsx` 文件，因此 Nginx 站点配置需要设置 `client_max_body_size 22m;`。
+
 PC 网页生产资源会在 Docker 构建时自动生成。非 Docker 部署需要在重启服务前执行：
 
 ```bash
@@ -92,6 +95,7 @@ DING_LOGISTICS_USER_IDS=warehouse1
 | POST | `/api/uploads/image` | 登录用户 | 上传不超过 10 MB 的图片至 OSS |
 | GET | `/api/orders` | 登录用户 | 按角色查询订单 |
 | POST | `/api/orders` | 业务、管理员 | 创建多产品订单 |
+| POST | `/api/imports/pi` | 业务、管理员 | 解析 PI 报价单并返回可编辑订单草稿 |
 | GET | `/api/orders/:id` | 相关角色 | 查询完整订单 |
 | PUT | `/api/orders/:id` | 管理员 | 修改订单、负责人和全部产品明细 |
 | DELETE | `/api/orders/:id` | 管理员 | 删除订单及其数据库关联数据 |

@@ -104,7 +104,7 @@ router.post('/', requireRoles('sales', 'admin'), validate(createOrderSchema), as
           (id, order_id, sku, name, variant, units_per_carton, carton_count, weight_kg, volume_m3,
            quantity, unit_price, total_price, purchase_cost)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [productId, orderId, product.sku, product.name, product.variant, product.unitsPerCarton,
+        [productId, orderId, product.sku || null, product.name, product.variant, product.unitsPerCarton,
           product.cartons, product.weight, product.volume, product.quantity, product.unitPrice, totalPrice, product.purchaseCost]
       );
       for (const attachment of product.images) {
@@ -167,7 +167,7 @@ router.put('/:id', requireRoles('admin'), validate(adminReplaceOrderSchema), asy
             purchase_status = ?, purchased_by = IF(? = 'completed', COALESCE(purchased_by, ?), NULL),
             purchased_at = IF(? = 'completed', COALESCE(purchased_at, NOW(3)), NULL)
            WHERE id = ? AND order_id = ?`,
-          [product.sku, product.name, product.variant, product.unitsPerCarton, product.cartons,
+          [product.sku || null, product.name, product.variant, product.unitsPerCarton, product.cartons,
             product.weight, product.volume, product.quantity, product.unitPrice, totalPrice, product.purchaseCost,
             product.purchaseStatus, product.purchaseStatus, req.user.sub, product.purchaseStatus, product.id, order.id]
         );
@@ -177,7 +177,7 @@ router.put('/:id', requireRoles('admin'), validate(adminReplaceOrderSchema), asy
             (id, order_id, sku, name, variant, units_per_carton, carton_count, weight_kg, volume_m3,
              quantity, unit_price, total_price, purchase_cost, purchase_status, purchased_by, purchased_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 'completed', NOW(3), NULL))`,
-          [randomUUID(), order.id, product.sku, product.name, product.variant, product.unitsPerCarton,
+          [randomUUID(), order.id, product.sku || null, product.name, product.variant, product.unitsPerCarton,
             product.cartons, product.weight, product.volume, product.quantity, product.unitPrice, totalPrice,
             product.purchaseCost, product.purchaseStatus,
             product.purchaseStatus === 'completed' ? req.user.sub : null, product.purchaseStatus]

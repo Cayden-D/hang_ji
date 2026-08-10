@@ -75,6 +75,28 @@ const uploadImage = (filePath, category) => new Promise((resolve, reject) => {
   });
 });
 
+const uploadPi = (filePath, fileName = 'PI.xlsx') => new Promise((resolve, reject) => {
+  if (typeof dd === 'undefined' || !dd.uploadFile) {
+    reject(new Error('当前钉钉版本不支持文件上传'));
+    return;
+  }
+  dd.uploadFile({
+    url: apiBaseUrl + '/api/imports/pi',
+    fileType: 'file',
+    fileName: 'file',
+    filePath,
+    header: { Authorization: 'Bearer ' + getApp().globalData.sessionToken },
+    formData: { fileName },
+    success: (res) => {
+      const body = parseData(res.data);
+      const status = Number(res.statusCode || res.status || 0);
+      if (status >= 200 && status < 300 && body && body.imported) return resolve(body);
+      reject(new Error(body && body.error && body.error.message ? body.error.message : 'PI 导入失败（' + (status || '未知状态') + '）'));
+    },
+    fail: (error) => reject(new Error(error.errorMessage || error.errMsg || 'PI 文件上传失败'))
+  });
+});
+
 const loginWithDingTalk = (code) => request({
   path: '/api/auth/dingtalk',
   method: 'POST',
@@ -104,4 +126,4 @@ const adminUsers = {
   setActive: (id, isActive) => request({ path: '/api/admin/users/' + encodeURIComponent(id) + '/active', method: 'PATCH', data: { isActive } })
 };
 
-module.exports = { request, uploadImage, loginWithDingTalk, orders, adminUsers };
+module.exports = { request, uploadImage, uploadPi, loginWithDingTalk, orders, adminUsers };

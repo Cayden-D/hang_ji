@@ -9,6 +9,7 @@ import { config } from './config.js';
 import { AppError } from './errors.js';
 import { logger } from './logger.js';
 import authRouter from './routes/auth.js';
+import importsRouter from './routes/imports.js';
 import ordersRouter from './routes/orders.js';
 import uploadsRouter from './routes/uploads.js';
 import usersRouter from './routes/users.js';
@@ -36,6 +37,7 @@ export const createApp = () => {
   app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'hangji-api' }));
   app.get('/api/public-config', (_req, res) => res.json({ corpId: config.dingTalk.corpId }));
   app.use('/api/auth', authRouter);
+  app.use('/api/imports', importsRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/uploads', uploadsRouter);
   app.use('/api/admin/users', usersRouter);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adminReplaceOrderSchema, adminUpdateShipmentSchema, createOrderSchema, shipmentSchema } from '../src/schemas/orders.js';
+import { adminReplaceOrderSchema, adminUpdateShipmentSchema, createOrderSchema, listOrdersSchema, shipmentSchema } from '../src/schemas/orders.js';
 
 const validOrder = {
   customerName: 'NORDHAUS GmbH',
@@ -32,6 +32,16 @@ test('order accepts trust assurance full payment and an empty SKU', () => {
   });
   assert.equal(parsed.paymentMethod, '信保全款');
   assert.equal(parsed.products[0].sku, '');
+});
+
+test('order list accepts a valid creation date range', () => {
+  const parsed = listOrdersSchema.parse({ dateFrom: '2026-08-01', dateTo: '2026-08-31' });
+  assert.equal(parsed.dateFrom, '2026-08-01');
+  assert.equal(parsed.dateTo, '2026-08-31');
+});
+
+test('order list rejects a reversed creation date range', () => {
+  assert.equal(listOrdersSchema.safeParse({ dateFrom: '2026-08-31', dateTo: '2026-08-01' }).success, false);
 });
 
 test('shipment rejects arrival before shipment', () => {

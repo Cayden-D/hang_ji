@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="航迹协作 PC 工作台" />
     <title>航迹协作 · PC 工作台</title>
-    <script type="module" crossorigin src="/pc/assets/index-DWWoqvQ-.js"></script>
-    <link rel="stylesheet" crossorigin href="/pc/assets/index-9-uC6WMA.css">
+    <script type="module" crossorigin src="/pc/assets/index-CX0cIyD4.js"></script>
+    <link rel="stylesheet" crossorigin href="/pc/assets/index-DYxY3BvW.css">
   </head>
   <body>
     <div id="auth-screen" class="auth-screen">
@@ -117,7 +117,11 @@
             <div class="filter-tabs" id="order-filters">
               <button class="active" data-status="all">全部</button><button data-status="pending_purchase">待采购</button><button data-status="purchasing">采购中</button><button data-status="purchased">待发货</button><button data-status="shipped">已发货</button>
             </div>
-            <span id="order-count" class="result-count">0 条订单</span>
+            <div class="order-date-toolbar">
+              <label><span>创建时间</span><input id="order-date-from" type="date" /></label><i>—</i><label><span>至</span><input id="order-date-to" type="date" /></label>
+              <button id="clear-order-dates" class="date-clear-button" type="button">清空</button>
+              <span id="order-count" class="result-count">0 条订单</span>
+            </div>
           </div>
           <div class="table-shell">
             <table class="order-table">

@@ -115,7 +115,11 @@
             <div class="filter-tabs" id="order-filters">
               <button class="active" data-status="all">全部</button><button data-status="pending_purchase">待采购</button><button data-status="purchasing">采购中</button><button data-status="purchased">待发货</button><button data-status="shipped">已发货</button>
             </div>
-            <span id="order-count" class="result-count">0 条订单</span>
+            <div class="order-date-toolbar">
+              <label><span>创建时间</span><input id="order-date-from" type="date" /></label><i>—</i><label><span>至</span><input id="order-date-to" type="date" /></label>
+              <button id="clear-order-dates" class="date-clear-button" type="button">清空</button>
+              <span id="order-count" class="result-count">0 条订单</span>
+            </div>
           </div>
           <div class="table-shell">
             <table class="order-table">

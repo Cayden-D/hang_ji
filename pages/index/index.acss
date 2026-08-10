@@ -373,3 +373,11 @@
 .my-performance-grid view { padding: 13rpx; background: rgba(255,255,255,.75); }
 .my-performance-grid text { display: block; color: #9A7466; font-size: 14rpx; }
 .my-performance-grid text + text { margin-top: 4rpx; color: #75402D; font-family: monospace; font-size: 20rpx; font-weight: 800; }
+.order-date-filter { min-height: 76rpx; margin: 13rpx 0 4rpx; padding: 8rpx 13rpx; box-sizing: border-box; display: flex; align-items: center; gap: 8rpx; border: 1rpx solid #D9E4E6; border-radius: 11rpx; background: #fff; }
+.order-date-filter picker { min-width: 0; flex: 1; }
+.date-filter-value { padding: 5rpx 9rpx; }
+.date-filter-value text { display: block; color: #87979C; font-size: 14rpx; }
+.date-filter-value text + text { margin-top: 3rpx; color: #24444E; font-family: monospace; font-size: 18rpx; font-weight: 800; }
+.date-filter-arrow { color: #9AACB1; font-size: 20rpx; }
+.date-filter-clear { padding: 11rpx 8rpx; color: #D65C30; font-size: 17rpx; font-weight: 700; }
+.date-filter-loading { padding: 9rpx 0; color: #70868D; font-size: 16rpx; text-align: center; }

@@ -101,6 +101,13 @@
     <view a:if="{{currentTab === 'orders'}}" class="page-content list-page">
       <view class="page-title-row"><view><text class="page-kicker">SHIPMENT ORDERS</text><text class="page-title">出货单</text></view><view class="round-add" a:if="{{currentUser.role === 'sales' || currentUser.role === 'admin'}}" onTap="openCreate">＋</view></view>
       <view class="search-box"><text>⌕</text><input value="{{searchValue}}" placeholder="搜索客户、单号或货号" onInput="onSearch" /></view>
+      <view class="order-date-filter">
+        <picker mode="date" value="{{orderDateFrom}}" onChange="setOrderDateFrom"><view class="date-filter-value"><text>开始日期</text><text>{{orderDateFrom || '不限'}}</text></view></picker>
+        <text class="date-filter-arrow">→</text>
+        <picker mode="date" value="{{orderDateTo}}" onChange="setOrderDateTo"><view class="date-filter-value"><text>结束日期</text><text>{{orderDateTo || '不限'}}</text></view></picker>
+        <text class="date-filter-clear" a:if="{{orderDateFrom || orderDateTo}}" onTap="clearOrderDateFilter">清空</text>
+      </view>
+      <view class="date-filter-loading" a:if="{{dateFilterLoading}}">正在按订单创建日期筛选…</view>
       <scroll-view scroll-x class="filter-scroll">
         <view class="filters">
           <view class="filter {{filter === 'all' ? 'active' : ''}}" data-filter="all" onTap="setFilter">全部 {{orders.length}}</view>

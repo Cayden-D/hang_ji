@@ -105,7 +105,12 @@ const loginWithDingTalk = (code) => request({
 });
 
 const orders = {
-  list: () => request({ path: '/api/orders?page=1&pageSize=100' }),
+  list: (filters = {}) => {
+    const query = ['page=1', 'pageSize=100'];
+    if (filters.dateFrom) query.push('dateFrom=' + encodeURIComponent(filters.dateFrom));
+    if (filters.dateTo) query.push('dateTo=' + encodeURIComponent(filters.dateTo));
+    return request({ path: '/api/orders?' + query.join('&') });
+  },
   detail: (id) => request({ path: '/api/orders/' + encodeURIComponent(id) }),
   create: (data) => request({ path: '/api/orders', method: 'POST', data }),
   completePurchase: (id, productIds) => request({

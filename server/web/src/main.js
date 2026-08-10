@@ -24,6 +24,9 @@ const state = {
   user: null,
   orders: [],
   orderFilter: 'all',
+  orderDateFrom: '',
+  orderDateTo: '',
+  orderViewItems: null,
   search: '',
   currentView: 'dashboard',
   currentDetail: null,
@@ -244,6 +247,38 @@ async function loadOrders() {
   }
 }
 
+async function loadOrderView() {
+  const { orderDateFrom, orderDateTo } = state;
+  if (orderDateFrom && orderDateTo && orderDateTo < orderDateFrom) {
+    toast('结束日期不能早于开始日期');
+    return;
+  }
+  if (!orderDateFrom && !orderDateTo) {
+    state.orderViewItems = null;
+    renderOrders();
+    return;
+  }
+  if (previewMode) {
+    state.orderViewItems = state.orders.filter((order) => {
+      const date = String(order.createdAt || '').slice(0, 10);
+      return (!orderDateFrom || date >= orderDateFrom) && (!orderDateTo || date <= orderDateTo);
+    });
+    renderOrders();
+    return;
+  }
+  $('#orders-body').innerHTML = '<tr><td colspan="7"><div class="loading-line"></div></td></tr>';
+  try {
+    const query = new URLSearchParams({ page: '1', pageSize: '100' });
+    if (orderDateFrom) query.set('dateFrom', orderDateFrom);
+    if (orderDateTo) query.set('dateTo', orderDateTo);
+    const result = await api(`/api/orders?${query.toString()}`);
+    state.orderViewItems = result.items || [];
+    renderOrders();
+  } catch (error) {
+    toast(`日期筛选失败：${error.message}`);
+  }
+}
+
 async function loadExchangeRates() {
   try {
     const result = await api('/api/exchange-rates/usd-cny');
@@ -362,7 +397,7 @@ const productText = (order) => {
   return `${item.name || item.sku}${item.variant ? ` / ${item.variant}` : ''}${order.productCount > 1 ? ` 等 ${order.productCount} 款` : ''}`;
 };
 
-const filteredOrders = () => state.orders.filter((order) => {
+const filteredOrders = () => (state.orderViewItems === null ? state.orders : state.orderViewItems).filter((order) => {
   if (state.orderFilter !== 'all' && order.status !== state.orderFilter) return false;
   if (!state.search) return true;
   const keyword = state.search.toLowerCase();
@@ -653,6 +688,7 @@ async function submitOrder(event) {
     const result = await api('/api/orders', { method: 'POST', body: JSON.stringify(data) });
     replaceOrder(result.order);
     void loadLeaderboard();
+    if (state.orderDateFrom || state.orderDateTo) void loadOrderView();
     $('#create-dialog').close();
     toast(`订单 ${result.order.orderNo} 已创建`);
   } catch (error) { toast(`创建失败：${error.message}`); }
@@ -877,7 +913,17 @@ function bindEvents() {
   $$('[data-view-jump]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.viewJump)));
   $('#create-button').addEventListener('click', openCreate);
   $('#admin-create-order').addEventListener('click', openCreate);
-  $('#refresh-button').addEventListener('click', loadOrders);
+  $('#refresh-button').addEventListener('click', async () => { await loadOrders(); if (state.orderDateFrom || state.orderDateTo) await loadOrderView(); });
+  $('#order-date-from').addEventListener('change', (event) => { state.orderDateFrom = event.target.value; loadOrderView(); });
+  $('#order-date-to').addEventListener('change', (event) => { state.orderDateTo = event.target.value; loadOrderView(); });
+  $('#clear-order-dates').addEventListener('click', () => {
+    state.orderDateFrom = '';
+    state.orderDateTo = '';
+    state.orderViewItems = null;
+    $('#order-date-from').value = '';
+    $('#order-date-to').value = '';
+    renderOrders();
+  });
   $('#performance-month').addEventListener('change', (event) => {
     state.performanceMonth = event.target.value || currentMonth();
     loadPerformance();
@@ -989,10 +1035,10 @@ if (previewMode) {
     me: { userId: 'preview-admin', name: '林航', title: '外贸业务总监', avatarUrl: '', rank: 1, orderCount: 4, salesCny: 476820, profitCny: 108640, commissionCny: 3476.48 }
   };
   state.orders = [
-    { id: 'preview-1', orderNo: 'SO-260810-A1F92C', customerName: 'Nordhavn Living', destination: '丹麦', deadline: '2026-08-12', currency: 'USD', totalAmount: 28640, ownerName: '林航', status: 'purchasing', productCount: 3, productSummary: { sku: 'BLK-072', name: '云朵绒毯', variant: '奶油白' } },
-    { id: 'preview-2', orderNo: 'SO-260809-8C70D4', customerName: 'Maison Épure', destination: '法国', deadline: '2026-08-14', currency: 'USD', totalAmount: 15820, ownerName: '周黎', status: 'purchased', productCount: 2, productSummary: { sku: 'CER-118', name: '手工陶瓷餐具', variant: '雾蓝釉' } },
-    { id: 'preview-3', orderNo: 'SO-260805-3D8E11', customerName: 'Atelier Form', destination: '澳大利亚', deadline: '2026-08-20', currency: 'USD', totalAmount: 42100, ownerName: '林航', status: 'shipped', productCount: 4, productSummary: { sku: 'LMP-042', name: '纸艺吊灯', variant: '原木色' } },
-    { id: 'preview-4', orderNo: 'SO-260810-F09A27', customerName: 'North & Pine', destination: '加拿大', deadline: '2026-08-11', currency: 'USD', totalAmount: 9340, ownerName: '唐允', status: 'pending_purchase', productCount: 1, productSummary: { sku: 'BAG-220', name: '帆布旅行包', variant: '橄榄绿' } }
+    { id: 'preview-1', orderNo: 'SO-260810-A1F92C', createdAt: '2026-08-10T09:20:00', customerName: 'Nordhavn Living', destination: '丹麦', deadline: '2026-08-12', currency: 'USD', totalAmount: 28640, ownerName: '林航', status: 'purchasing', productCount: 3, productSummary: { sku: 'BLK-072', name: '云朵绒毯', variant: '奶油白' } },
+    { id: 'preview-2', orderNo: 'SO-260809-8C70D4', createdAt: '2026-08-09T14:10:00', customerName: 'Maison Épure', destination: '法国', deadline: '2026-08-14', currency: 'USD', totalAmount: 15820, ownerName: '周黎', status: 'purchased', productCount: 2, productSummary: { sku: 'CER-118', name: '手工陶瓷餐具', variant: '雾蓝釉' } },
+    { id: 'preview-3', orderNo: 'SO-260805-3D8E11', createdAt: '2026-08-05T11:30:00', customerName: 'Atelier Form', destination: '澳大利亚', deadline: '2026-08-20', currency: 'USD', totalAmount: 42100, ownerName: '林航', status: 'shipped', productCount: 4, productSummary: { sku: 'LMP-042', name: '纸艺吊灯', variant: '原木色' } },
+    { id: 'preview-4', orderNo: 'SO-260810-F09A27', createdAt: '2026-08-10T16:40:00', customerName: 'North & Pine', destination: '加拿大', deadline: '2026-08-11', currency: 'USD', totalAmount: 9340, ownerName: '唐允', status: 'pending_purchase', productCount: 1, productSummary: { sku: 'BAG-220', name: '帆布旅行包', variant: '橄榄绿' } }
   ];
   enterApp();
   renderExchangeRates();

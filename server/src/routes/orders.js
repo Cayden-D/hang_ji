@@ -33,7 +33,7 @@ const insertAttachment = async (connection, { orderId, productId = null, shipmen
 };
 
 router.get('/', validate(listOrdersSchema, 'query'), async (req, res) => {
-  const { status, search, page, pageSize } = req.validatedQuery;
+  const { status, search, dateFrom, dateTo, page, pageSize } = req.validatedQuery;
   const where = [];
   const params = [];
   if (req.user.role === 'sales') {
@@ -50,6 +50,14 @@ router.get('/', validate(listOrdersSchema, 'query'), async (req, res) => {
     where.push('(o.order_no LIKE ? OR o.customer_name LIKE ? OR EXISTS (SELECT 1 FROM products sp WHERE sp.order_id = o.id AND (sp.sku LIKE ? OR sp.name LIKE ?)))');
     const keyword = `%${search}%`;
     params.push(keyword, keyword, keyword, keyword);
+  }
+  if (dateFrom) {
+    where.push('o.created_at >= ?');
+    params.push(dateFrom);
+  }
+  if (dateTo) {
+    where.push('o.created_at < DATE_ADD(?, INTERVAL 1 DAY)');
+    params.push(dateTo);
   }
   const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const countRows = await query(`SELECT COUNT(*) AS total FROM orders o ${clause}`, params);

@@ -44,8 +44,13 @@ export const createOrderSchema = z.object({
 export const listOrdersSchema = z.object({
   status: z.enum(['pending_purchase', 'purchasing', 'purchased', 'shipped', 'cancelled']).optional(),
   search: z.string().trim().max(255).optional(),
+  dateFrom: date.optional(),
+  dateTo: date.optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20)
+}).refine((value) => !value.dateFrom || !value.dateTo || value.dateTo >= value.dateFrom, {
+  message: 'dateTo cannot be earlier than dateFrom',
+  path: ['dateTo']
 });
 
 export const purchaseSchema = z.object({

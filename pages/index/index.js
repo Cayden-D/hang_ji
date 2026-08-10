@@ -90,6 +90,10 @@ Page({
     filter: 'all',
     searchValue: '',
     orders: [],
+    dateFilteredOrders: null,
+    orderDateFrom: '',
+    orderDateTo: '',
+    dateFilterLoading: false,
     visibleOrders: [],
     taskOrders: [],
     urgentOrder: null,
@@ -367,6 +371,41 @@ Page({
     this.refreshVisible();
   },
 
+  setOrderDateFrom(e) {
+    this.setData({ orderDateFrom: e.detail.value }, () => this.loadDateFilteredOrders());
+  },
+
+  setOrderDateTo(e) {
+    this.setData({ orderDateTo: e.detail.value }, () => this.loadDateFilteredOrders());
+  },
+
+  async loadDateFilteredOrders() {
+    const { orderDateFrom, orderDateTo } = this.data;
+    if (orderDateFrom && orderDateTo && orderDateTo < orderDateFrom) {
+      this.showToast('结束日期不能早于开始日期');
+      return;
+    }
+    if (!orderDateFrom && !orderDateTo) {
+      this.setData({ dateFilteredOrders: null, dateFilterLoading: false });
+      this.refreshVisible();
+      return;
+    }
+    this.setData({ dateFilterLoading: true });
+    try {
+      const result = await api.orders.list({ dateFrom: orderDateFrom, dateTo: orderDateTo });
+      this.setData({ dateFilteredOrders: (result.items || []).map(mapOrder), dateFilterLoading: false });
+      this.refreshVisible();
+    } catch (error) {
+      this.setData({ dateFilterLoading: false });
+      this.showToast('日期筛选失败：' + error.message);
+    }
+  },
+
+  clearOrderDateFilter() {
+    this.setData({ orderDateFrom: '', orderDateTo: '', dateFilteredOrders: null, dateFilterLoading: false });
+    this.refreshVisible();
+  },
+
   onSearch(e) {
     this.setData({ searchValue: e.detail.value });
     this.refreshVisible();
@@ -375,7 +414,8 @@ Page({
   refreshVisible() {
     const filter = this.data.filter;
     const keyword = (this.data.searchValue || '').toLowerCase();
-    const list = this.data.orders.filter((item) => {
+    const source = this.data.dateFilteredOrders === null ? this.data.orders : this.data.dateFilteredOrders;
+    const list = source.filter((item) => {
       const matchesFilter = filter === 'all' || item.status === filter;
       const haystack = (item.id + item.customer + item.product + item.sku).toLowerCase();
       return matchesFilter && (!keyword || haystack.indexOf(keyword) > -1);
@@ -617,6 +657,7 @@ Page({
         form: { customer: '', customerContact: '', shippingAddress: '', country: '', deadline: '', payment: 'T/T', freight: '', receivedCny: '', note: '', paymentAttachments: [], products: [emptyProduct()] }
       });
       this.rebuildDerivedData();
+      if (this.data.orderDateFrom || this.data.orderDateTo) this.loadDateFilteredOrders();
       this.loadLeaderboard();
       this.showToast('订单已创建，采购待办已同步');
     } catch (error) {

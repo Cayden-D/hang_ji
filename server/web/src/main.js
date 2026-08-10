@@ -30,6 +30,7 @@ const state = {
   members: [],
   rates: null,
   performance: null,
+  leaderboardReport: null,
   performanceMonth: currentMonth(),
   productDrafts: [],
   paymentAttachments: [],
@@ -202,10 +203,14 @@ function enterApp() {
   $('#app').classList.remove('is-hidden');
   renderAccount();
   $('#performance-month').value = state.performanceMonth;
-  if (previewMode) renderAll();
+  if (previewMode) {
+    renderAll();
+    renderLeaderboard();
+  }
   else {
     loadOrders();
     loadExchangeRates();
+    loadLeaderboard();
   }
 }
 
@@ -251,6 +256,43 @@ async function loadExchangeRates() {
   }
 }
 
+async function loadLeaderboard() {
+  try {
+    state.leaderboardReport = await api(`/api/performance/leaderboard?month=${encodeURIComponent(currentMonth())}`);
+    renderLeaderboard();
+  } catch (error) {
+    console.error('排行榜读取失败', error);
+    $('#sales-champion').innerHTML = '<span>排行榜暂时不可用</span>';
+    $('#sales-leaderboard').innerHTML = '';
+    $('#my-performance-content').innerHTML = '<span>个人业绩暂时不可用</span>';
+  }
+}
+
+const rankingAvatar = (item, className) => item.avatarUrl
+  ? `<div class="${className}"><img src="${escapeHtml(item.avatarUrl)}" alt="" /></div>`
+  : `<div class="${className}">${escapeHtml((item.name || '航').slice(0, 1))}</div>`;
+
+function renderLeaderboard() {
+  const report = state.leaderboardReport;
+  if (!report) return;
+  const champion = report.champion;
+  $('#sales-champion').innerHTML = champion ? `
+    ${rankingAvatar(champion, 'sales-champion-avatar')}
+    <div class="sales-champion-main"><small>本月销冠</small><strong>${escapeHtml(champion.name)}</strong><span>${champion.orderCount} 笔订单 · 利润 ¥${money(champion.profitCny)}</span></div>
+    <div class="sales-champion-value"><strong>¥${money(champion.salesCny)}</strong><small>折算销售额</small></div>` : '<span>本月还没有销售业绩</span>';
+  $('#sales-leaderboard').innerHTML = (report.leaders || []).slice(0, 6).map((item) => `
+    <div class="sales-rank-row">
+      <span class="sales-rank-number">${item.rank}</span>${rankingAvatar(item, 'sales-rank-avatar')}
+      <div class="sales-rank-main"><strong>${escapeHtml(item.name)}</strong><small>${item.orderCount} 笔订单${item.title ? ` · ${escapeHtml(item.title)}` : ''}</small></div>
+      <span class="sales-rank-value">¥${money(item.salesCny)}</span>
+    </div>`).join('') || '<div class="empty-state"><strong>暂无排名</strong></div>';
+  const mine = report.me;
+  $('#my-performance-content').innerHTML = mine ? `
+    <span class="my-performance-rank">本月第 ${mine.rank} 名 · ${mine.orderCount} 笔订单</span>
+    <div class="my-performance-total"><strong>¥${money(mine.salesCny)}</strong><span>折算人民币销售额</span></div>
+    <div class="my-performance-stats"><div><small>本月利润</small><strong>¥${money(mine.profitCny)}</strong></div><div><small>预计提成</small><strong>¥${money(mine.commissionCny)}</strong></div></div>` : '<span>当前角色没有个人销售业绩</span>';
+}
+
 function renderExchangeRates() {
   if (!state.rates) return;
   const first = Number(state.rates.monthStart.rate);
@@ -287,6 +329,9 @@ function renderPerformance() {
   $('#performance-profit').textContent = `¥${money(report.summary.profitCny)}`;
   $('#performance-commission').textContent = `¥${money(report.summary.completedCommissionCny)}`;
   $('#performance-commission-note').textContent = `全部订单预计 ¥${money(report.summary.commissionCny)}`;
+  $('#performance-rate-note').textContent = report.exchangeRate
+    ? `统一按 ${report.exchangeRate.date} 汇率 ${Number(report.exchangeRate.rate).toFixed(4)} 折算`
+    : '美元金额统一按当月 1 日汇率折算';
   $('#performance-body').innerHTML = report.items.map((item) => `<tr data-order-id="${item.id}">
     <td><div class="performance-order"><strong>${escapeHtml(item.customerName)}</strong><span>${escapeHtml(item.orderNo)} · ${escapeHtml(item.orderDate)}</span></div></td>
     <td class="admin-only">${escapeHtml(item.ownerName)}</td>
@@ -607,6 +652,7 @@ async function submitOrder(event) {
   try {
     const result = await api('/api/orders', { method: 'POST', body: JSON.stringify(data) });
     replaceOrder(result.order);
+    void loadLeaderboard();
     $('#create-dialog').close();
     toast(`订单 ${result.order.orderNo} 已创建`);
   } catch (error) { toast(`创建失败：${error.message}`); }
@@ -793,7 +839,7 @@ function renderMembers() {
     <td><div class="member-info"><div class="avatar">${escapeHtml((member.name || '·').slice(0,1))}</div><div><strong>${escapeHtml(member.name)}${member.isDingAdmin ?? member.is_ding_admin ? '<em class="ding-admin-mark">钉钉管理员</em>' : ''}</strong><span>${escapeHtml(member.title || member.mobile || '未填写职位')}</span></div></div></td>
     <td class="muted">${escapeHtml(member.dingUserId || member.ding_user_id || '—')}</td>
     <td><select class="role-select" data-member-role="${member.id}" ${member.id === state.user.id || (member.isDingAdmin ?? member.is_ding_admin) ? 'disabled' : ''}>${Object.entries(roleNames).map(([value, label]) => `<option value="${value}" ${member.role === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td>
-    <td>${member.role === 'sales' ? `<input class="commission-input" data-member-commission="${member.id}" type="number" min="0" max="100" step="0.01" value="${Number(member.commissionRatePercent ?? member.commission_rate_percent ?? 0)}" aria-label="${escapeHtml(member.name)}提成比例" /> %` : '—'}</td>
+    <td>${['sales', 'admin'].includes(member.role) ? `<input class="commission-input" data-member-commission="${member.id}" type="number" min="0" max="100" step="0.01" value="${Number(member.commissionRatePercent ?? member.commission_rate_percent ?? 0)}" aria-label="${escapeHtml(member.name)}提成比例" /> %` : '—'}</td>
     <td>${member.lastLoginAt || member.last_login_at ? escapeHtml(String(member.lastLoginAt || member.last_login_at).replace('T',' ').slice(0,16)) : '尚未登录'}</td>
     <td><button class="switch ${member.isActive ?? member.is_active ? 'on' : ''}" data-member-active="${member.id}" ${member.id === state.user.id ? 'disabled' : ''} aria-label="切换账号状态"></button></td>
   </tr>`).join('');
@@ -931,6 +977,16 @@ if (previewMode) {
       { id: 'preview-2', orderNo: 'SO-260809-8C70D4', orderDate: '2026-08-09', customerName: 'Maison Épure', ownerName: '周黎', currency: 'USD', orderAmount: 15820, receivedCny: 106860, convertedOrderAmountCny: 106704, productCost: 9600, freight: 880, profitCny: 36171, commissionRatePercent: 2.5, commissionCny: 904.28, freightForwarder: '海程国际', isCompleted: true },
       { id: 'preview-3', orderNo: 'SO-260805-3D8E11', orderDate: '2026-08-05', customerName: 'Atelier Form', ownerName: '林航', currency: 'USD', orderAmount: 42100, receivedCny: 279200, convertedOrderAmountCny: 284080, productCost: 26800, freight: 2300, profitCny: 42028, commissionRatePercent: 3.2, commissionCny: 1344.90, freightForwarder: '迅达货运', isCompleted: true }
     ]
+  };
+  state.leaderboardReport = {
+    month: '2026-08',
+    champion: { userId: 'preview-admin', name: '林航', title: '外贸业务总监', avatarUrl: '', rank: 1, orderCount: 4, salesCny: 476820, profitCny: 108640, commissionCny: 3476.48 },
+    leaders: [
+      { userId: 'preview-admin', name: '林航', title: '外贸业务总监', avatarUrl: '', rank: 1, orderCount: 4, salesCny: 476820, profitCny: 108640, commissionCny: 3476.48 },
+      { userId: 'preview-sales-2', name: '周黎', title: '外贸业务员', avatarUrl: '', rank: 2, orderCount: 3, salesCny: 328460, profitCny: 74120, commissionCny: 1853 },
+      { userId: 'preview-sales-3', name: '唐允', title: '外贸业务员', avatarUrl: '', rank: 3, orderCount: 2, salesCny: 186900, profitCny: 39540, commissionCny: 988.5 }
+    ],
+    me: { userId: 'preview-admin', name: '林航', title: '外贸业务总监', avatarUrl: '', rank: 1, orderCount: 4, salesCny: 476820, profitCny: 108640, commissionCny: 3476.48 }
   };
   state.orders = [
     { id: 'preview-1', orderNo: 'SO-260810-A1F92C', customerName: 'Nordhavn Living', destination: '丹麦', deadline: '2026-08-12', currency: 'USD', totalAmount: 28640, ownerName: '林航', status: 'purchasing', productCount: 3, productSummary: { sku: 'BLK-072', name: '云朵绒毯', variant: '奶油白' } },

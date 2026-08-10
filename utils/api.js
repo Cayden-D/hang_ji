@@ -132,7 +132,8 @@ const exchangeRates = {
 };
 
 const performance = {
-  monthly: (month) => request({ path: '/api/performance/monthly?month=' + encodeURIComponent(month) })
+  monthly: (month) => request({ path: '/api/performance/monthly?month=' + encodeURIComponent(month) }),
+  leaderboard: (month) => request({ path: '/api/performance/leaderboard?month=' + encodeURIComponent(month) })
 };
 
 module.exports = { request, uploadImage, uploadPi, loginWithDingTalk, orders, adminUsers, exchangeRates, performance };

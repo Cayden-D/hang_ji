@@ -70,6 +70,24 @@
         <view><text>MONTHLY PERFORMANCE</text><text>查看本月利润与提成明细</text></view><text>→</text>
       </view>
 
+      <view class="leaderboard-section">
+        <view class="section-head"><text>本月业绩榜</text><text class="section-meta">按月初汇率折算销售额</text></view>
+        <view class="champion-card" a:if="{{monthlyChampion}}">
+          <view class="champion-crown">♛</view>
+          <view class="leader-avatar"><image a:if="{{monthlyChampion.avatarUrl}}" src="{{monthlyChampion.avatarUrl}}" mode="aspectFill" /><text a:else>{{monthlyChampion.initial}}</text></view>
+          <view class="champion-main"><text>本月销冠</text><text>{{monthlyChampion.name}}</text><text>{{monthlyChampion.orderCount}} 笔订单 · ¥{{monthlyChampion.salesCnyText}}</text></view>
+        </view>
+        <view class="leaderboard-list" a:if="{{leaderboard.length}}">
+          <view class="leader-row" a:for="{{leaderboard}}" a:key="userId">
+            <text class="leader-rank rank-{{item.rank}}">{{item.rank}}</text>
+            <view class="leader-avatar small"><image a:if="{{item.avatarUrl}}" src="{{item.avatarUrl}}" mode="aspectFill" /><text a:else>{{item.initial}}</text></view>
+            <view class="leader-main"><text>{{item.name}}</text><text>{{item.orderCount}} 笔订单</text></view>
+            <view class="leader-sales"><text>¥{{item.salesCnyText}}</text><text>销售额</text></view>
+          </view>
+        </view>
+        <view class="empty compact-empty" a:elif="{{!leaderboardLoading}}"><text>本月还没有销售业绩</text><text>创建订单后将自动参与排名</text></view>
+      </view>
+
       <view class="section-head"><text>最近流转</text><text class="link" data-tab="orders" onTap="switchTab">查看全部</text></view>
       <block a:for="{{orders}}" a:for-item="item" a:for-index="idx" a:key="id">
         <view class="compact-order" a:if="{{idx < 2}}" data-id="{{item.id}}" onTap="openDetail">
@@ -129,6 +147,7 @@
         <view><text class="page-kicker">MONTHLY PERFORMANCE</text><text class="page-title">月度业绩</text></view>
         <view class="month-switch"><text data-delta="-1" onTap="changePerformanceMonth">‹</text><text>{{performanceMonth}}</text><text data-delta="1" onTap="changePerformanceMonth">›</text></view>
       </view>
+      <view class="performance-rate-note">月初统一汇率 · {{performanceRateText}}</view>
       <view class="performance-summary">
         <view><text>订单</text><text>{{performanceSummary.orderCount}}</text><text>笔</text></view>
         <view><text>到账人民币</text><text>¥{{performanceSummary.receivedCny}}</text></view>
@@ -136,7 +155,7 @@
         <view class="commission-summary"><text>总提成</text><text>¥{{performanceSummary.commissionCny}}</text></view>
       </view>
       <view class="performance-note" a:if="{{performanceWarning}}">{{performanceWarning}}</view>
-      <view class="empty" a:if="{{performanceLoading}}"><text>正在核算本月业绩</text><text>历史汇率会自动匹配订单日期</text></view>
+      <view class="empty" a:if="{{performanceLoading}}"><text>正在核算本月业绩</text><text>美元金额统一使用当月 1 日汇率</text></view>
       <view class="performance-order" a:for="{{performanceItems}}" a:key="id" data-id="{{item.id}}" onTap="openDetail">
         <view class="performance-order-head"><view><text>{{item.customerName}}</text><text>{{item.orderNo}} · {{item.orderDate}}</text></view><text class="completion-badge {{item.isCompleted ? 'is-completed' : ''}}">{{item.isCompleted ? '已完结' : '进行中'}}</text></view>
         <view class="performance-money"><view><text>订单金额</text><text>{{item.currency}} {{item.orderAmountText}}</text></view><view><text>到账人民币</text><text>¥{{item.receivedCnyText}}</text></view></view>
@@ -152,6 +171,11 @@
         <view><text>{{currentUser.name}}</text><text>{{currentUser.subtitle}}</text></view>
       </view>
       <view class="profile-card"><view><text>应用角色</text><text>{{currentUser.roleText}}</text></view><view><text>员工工号</text><text>{{currentUser.jobNumber || '—'}}</text></view><view><text>账号状态</text><text>已登录</text></view></view>
+      <view class="my-performance-card" a:if="{{myMonthlyPerformance}}" data-tab="performance" onTap="switchTab">
+        <view class="my-performance-head"><view><text>本月个人业绩</text><text>第 {{myMonthlyPerformance.rank}} 名</text></view><text>查看明细 →</text></view>
+        <view class="my-performance-value"><text>¥{{myMonthlyPerformance.salesCnyText}}</text><text>折算人民币销售额 · {{myMonthlyPerformance.orderCount}} 笔订单</text></view>
+        <view class="my-performance-grid"><view><text>利润</text><text>¥{{myMonthlyPerformance.profitCnyText}}</text></view><view><text>预计提成</text><text>¥{{myMonthlyPerformance.commissionCnyText}}</text></view></view>
+      </view>
       <view class="profile-section-title">职位与角色</view>
       <view class="position-card">
         <view class="position-row"><text>岗位职称</text><text>{{currentUser.title || '未填写'}}</text></view>
@@ -288,7 +312,12 @@
       <scroll-view a:else scroll-y class="user-admin-list">
         <view class="user-admin-item" a:for="{{adminUsers}}" a:key="id">
           <view class="user-mini-avatar">{{item.initial}}</view>
-          <view class="user-admin-main"><text>{{item.name}}</text><text>{{item.ding_user_id}}</text></view>
+          <view class="user-admin-main">
+            <text>{{item.name}}</text><text>{{item.ding_user_id}}</text>
+            <view class="user-commission-control" a:if="{{item.role === 'sales' || item.role === 'admin'}}">
+              <text>提成</text><input type="digit" value="{{item.commissionRatePercent}}" data-id="{{item.id}}" data-current="{{item.commissionRatePercent}}" onBlur="changeUserCommission" /><text>%</text>
+            </view>
+          </view>
           <view class="user-role-control" data-id="{{item.id}}" onTap="cycleUserRole">{{item.roleText}}</view>
           <view class="user-active-control {{item.isActive ? 'is-active' : ''}}" data-id="{{item.id}}" onTap="toggleUserActive">{{item.isActive ? '启用' : '停用'}}</view>
         </view>

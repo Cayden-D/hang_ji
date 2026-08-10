@@ -147,6 +147,42 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .metric span, .metric small { display: block; color: var(--muted); font-size: 11px; }
 .metric strong { display: block; margin: 7px 0 5px; font: 800 34px "Arial Narrow", sans-serif; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, .75fr); gap: 16px; margin-top: 16px; }
+.sales-board-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, .65fr); gap: 16px; margin-top: 16px; }
+.leaderboard-panel, .my-performance-panel { min-width: 0; }
+.board-rule { color: var(--muted); font-size: 9px; }
+.sales-champion { position: relative; min-height: 94px; padding: 20px 22px 20px 84px; box-sizing: border-box; display: flex; align-items: center; overflow: hidden; border-radius: 11px; background: linear-gradient(120deg, #102a33, #155d75); color: #fff; }
+.sales-champion::before { content: '♛'; position: absolute; left: 24px; top: 20px; color: #f6c85f; font-size: 34px; transform: rotate(-10deg); }
+.sales-champion-avatar { width: 52px; height: 52px; flex: 0 0 auto; overflow: hidden; margin-right: 14px; border: 2px solid rgba(255,255,255,.45); border-radius: 50%; display: grid; place-items: center; background: #dceff2; color: #155d75; font-weight: 800; }
+.sales-champion-avatar img, .sales-rank-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.sales-champion-main { min-width: 0; flex: 1; }
+.sales-champion-main small, .sales-champion-main strong, .sales-champion-main span { display: block; }
+.sales-champion-main small { color: #93b0b8; font-size: 9px; letter-spacing: 1px; }
+.sales-champion-main strong { margin-top: 4px; font-size: 18px; }
+.sales-champion-main span { margin-top: 5px; color: #c1d4d9; font-size: 10px; }
+.sales-champion-value { text-align: right; }
+.sales-champion-value strong { display: block; font-family: var(--mono); font-size: 19px; }
+.sales-champion-value small { color: #9bb6be; font-size: 9px; }
+.sales-leaderboard { margin-top: 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
+.sales-rank-row { min-height: 52px; padding: 8px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e9eff0; }
+.sales-rank-row:last-child { border-bottom: 0; }
+.sales-rank-number { width: 22px; color: #7c9097; font-family: var(--mono); font-weight: 800; text-align: center; }
+.sales-rank-row:nth-child(1) .sales-rank-number { color: #d99a19; }.sales-rank-row:nth-child(2) .sales-rank-number { color: #718892; }.sales-rank-row:nth-child(3) .sales-rank-number { color: #af7149; }
+.sales-rank-avatar { width: 34px; height: 34px; flex: 0 0 auto; overflow: hidden; border-radius: 50%; display: grid; place-items: center; background: #e2eef0; color: #155d75; font-size: 10px; font-weight: 800; }
+.sales-rank-main { min-width: 0; flex: 1; }
+.sales-rank-main strong, .sales-rank-main small { display: block; }
+.sales-rank-main strong { font-size: 11px; }.sales-rank-main small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.sales-rank-value { font-family: var(--mono); color: #155d75; font-size: 11px; font-weight: 800; }
+.my-performance-panel { color: #fff; background: #ff6b35; border-color: #ff6b35; }
+.my-performance-panel .eyebrow, .my-performance-panel .text-button { color: #ffd8ca; }
+.my-performance-panel h3 { color: #fff; }
+.my-performance-content > span { color: #ffe1d5; font-size: 10px; }
+.my-performance-rank { display: inline-block; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,.16); color: #fff; font-size: 9px; }
+.my-performance-total { margin-top: 19px; }
+.my-performance-total strong, .my-performance-total span { display: block; }
+.my-performance-total strong { font-family: var(--mono); font-size: 31px; }.my-performance-total span { margin-top: 5px; color: #ffe0d4; font-size: 9px; }
+.my-performance-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 20px; overflow: hidden; border-radius: 8px; background: rgba(255,255,255,.18); }
+.my-performance-stats div { padding: 12px; background: rgba(109,32,8,.14); }
+.my-performance-stats small, .my-performance-stats strong { display: block; }.my-performance-stats small { color: #ffd7c8; font-size: 8px; }.my-performance-stats strong { margin-top: 4px; font-family: var(--mono); font-size: 12px; }
 .panel { border: 1px solid var(--line); background: #fff; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; min-height: 78px; padding: 17px 21px; border-bottom: 1px solid var(--line); }
 .panel-head h3 { margin: 0; font-family: "Songti SC", serif; font-size: 19px; }
@@ -303,6 +339,7 @@ tbody tr:hover { background: #f8fbfb; }
   .topbar { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; }
   .search-box { width: 245px; }
   .dashboard-grid { grid-template-columns: 1fr; }
+  .sales-board-grid { grid-template-columns: 1fr; }
   .manifest { display: none; }
   .product-fields { grid-template-columns: repeat(4, 1fr); }
 }

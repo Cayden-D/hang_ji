@@ -103,8 +103,13 @@ Page({
     performanceMonth: currentMonthString(),
     performanceLoading: false,
     performanceWarning: '',
+    performanceRateText: '美元金额统一按当月 1 日汇率折算',
     performanceItems: [],
     performanceSummary: { orderCount: 0, orderAmount: '0.00', receivedCny: '0.00', profitCny: '0.00', commissionCny: '0.00' },
+    leaderboardLoading: false,
+    leaderboard: [],
+    monthlyChampion: null,
+    myMonthlyPerformance: null,
     showShipment: false,
     showUserAdmin: false,
     userAdminLoading: false,
@@ -143,6 +148,7 @@ Page({
     this.syncCurrentUser();
     this.loadOrders();
     this.loadExchangeRates();
+    this.loadLeaderboard();
   },
 
   onShow() {
@@ -299,11 +305,38 @@ Page({
           commissionCny: Number(summary.commissionCny || 0).toFixed(2)
         },
         performanceWarning: (result.warnings || []).join('；'),
+        performanceRateText: result.exchangeRate
+          ? result.exchangeRate.date + ' · USD/CNY ' + Number(result.exchangeRate.rate).toFixed(4)
+          : '美元金额统一按当月 1 日汇率折算',
         performanceLoading: false
       });
     } catch (error) {
       console.error('加载月度业绩失败', error);
       this.setData({ performanceLoading: false, performanceWarning: error.message, performanceItems: [] });
+    }
+  },
+
+  async loadLeaderboard() {
+    this.setData({ leaderboardLoading: true });
+    try {
+      const loggedIn = await this.waitForLogin();
+      if (!loggedIn) return this.setData({ leaderboardLoading: false });
+      const result = await api.performance.leaderboard(currentMonthString());
+      const format = (item) => item ? Object.assign({}, item, {
+        initial: (item.name || '航').slice(0, 1),
+        salesCnyText: Number(item.salesCny || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }),
+        profitCnyText: Number(item.profitCny || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }),
+        commissionCnyText: Number(item.commissionCny || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      }) : null;
+      this.setData({
+        leaderboard: (result.leaders || []).map(format),
+        monthlyChampion: format(result.champion),
+        myMonthlyPerformance: format(result.me),
+        leaderboardLoading: false
+      });
+    } catch (error) {
+      console.error('加载业绩排行榜失败', error);
+      this.setData({ leaderboardLoading: false });
     }
   },
 
@@ -584,6 +617,7 @@ Page({
         form: { customer: '', customerContact: '', shippingAddress: '', country: '', deadline: '', payment: 'T/T', freight: '', receivedCny: '', note: '', paymentAttachments: [], products: [emptyProduct()] }
       });
       this.rebuildDerivedData();
+      this.loadLeaderboard();
       this.showToast('订单已创建，采购待办已同步');
     } catch (error) {
       console.error('创建订单失败', error);
@@ -740,7 +774,8 @@ Page({
       const users = (result.items || []).map((item) => Object.assign({}, item, {
         roleText: roleNames[item.role] || item.role,
         initial: (item.name || '钉').slice(0, 1),
-        isActive: Boolean(item.is_active)
+        isActive: Boolean(item.is_active),
+        commissionRatePercent: Number(item.commissionRatePercent ?? item.commission_rate_percent ?? 0)
       }));
       this.setData({ adminUsers: users, userAdminLoading: false });
     } catch (error) {
@@ -786,6 +821,28 @@ Page({
       this.showToast(user.isActive ? '成员已停用' : '成员已启用');
     } catch (error) {
       this.showToast('状态更新失败：' + error.message);
+    }
+  },
+
+  async changeUserCommission(e) {
+    const id = e.currentTarget.dataset.id;
+    const current = Number(e.currentTarget.dataset.current || 0);
+    const value = Number(e.detail.value);
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      this.showToast('提成比例需在 0% 到 100% 之间');
+      await this.openUserAdmin();
+      return;
+    }
+    if (value === current) return;
+    try {
+      await api.adminUsers.setCommission(id, value);
+      const users = this.data.adminUsers.map((item) => item.id === id
+        ? Object.assign({}, item, { commissionRatePercent: value }) : item);
+      this.setData({ adminUsers: users });
+      this.showToast('提成比例已更新');
+    } catch (error) {
+      this.showToast('提成比例更新失败：' + error.message);
+      await this.openUserAdmin();
     }
   },
 

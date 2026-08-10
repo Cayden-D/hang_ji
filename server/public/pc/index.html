@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="航迹协作 PC 工作台" />
     <title>航迹协作 · PC 工作台</title>
-    <script type="module" crossorigin src="/pc/assets/index-DAkrHbbM.js"></script>
-    <link rel="stylesheet" crossorigin href="/pc/assets/index-CSHyorbz.css">
+    <script type="module" crossorigin src="/pc/assets/index-DWWoqvQ-.js"></script>
+    <link rel="stylesheet" crossorigin href="/pc/assets/index-9-uC6WMA.css">
   </head>
   <body>
     <div id="auth-screen" class="auth-screen">
@@ -88,6 +88,18 @@
             <article class="metric"><span>本期已发货</span><strong id="metric-shipped">0</strong><small>已创建物流记录</small></article>
           </div>
 
+          <div class="sales-board-grid">
+            <section class="panel leaderboard-panel">
+              <div class="panel-head"><div><p class="eyebrow">MONTHLY SALES BOARD</p><h3>本月业绩排行榜</h3></div><span class="board-rule">按月初汇率折算人民币销售额</span></div>
+              <div id="sales-champion" class="sales-champion"><span>正在核算本月销冠…</span></div>
+              <div id="sales-leaderboard" class="sales-leaderboard"></div>
+            </section>
+            <section id="my-performance-panel" class="panel my-performance-panel sales-only">
+              <div class="panel-head"><div><p class="eyebrow">MY PERFORMANCE</p><h3>我的本月业绩</h3></div><button class="text-button" data-view-jump="performance">查看明细 →</button></div>
+              <div id="my-performance-content" class="my-performance-content"><span>正在读取个人业绩…</span></div>
+            </section>
+          </div>
+
           <div class="dashboard-grid">
             <section class="panel wide">
               <div class="panel-head"><div><p class="eyebrow">PRIORITY QUEUE</p><h3>优先处理</h3></div><button class="text-button" data-view-jump="tasks">查看全部待办 →</button></div>
@@ -125,12 +137,12 @@
 
         <section id="view-performance" class="view">
           <div class="performance-toolbar">
-            <div><p class="eyebrow">MONTHLY COMMISSION LEDGER</p><h3>月度业绩与提成</h3></div>
+            <div><p class="eyebrow">MONTHLY COMMISSION LEDGER</p><h3>月度业绩与提成</h3><small id="performance-rate-note">美元金额统一按当月 1 日汇率折算</small></div>
             <label><span>统计月份</span><input id="performance-month" type="month" /></label>
           </div>
           <div class="performance-summary">
             <article><span>订单数</span><strong id="performance-orders">0</strong><small>当月创建订单</small></article>
-            <article><span>到账人民币</span><strong id="performance-received">¥0.00</strong><small>含未填写时的汇率估算</small></article>
+            <article><span>到账人民币</span><strong id="performance-received">¥0.00</strong><small>未填写时按月初汇率估算</small></article>
             <article><span>总利润</span><strong id="performance-profit">¥0.00</strong><small>到账 − 成本 − 运费</small></article>
             <article class="commission-card"><span>已完结提成</span><strong id="performance-commission">¥0.00</strong><small id="performance-commission-note">全部订单预计 ¥0.00</small></article>
           </div>

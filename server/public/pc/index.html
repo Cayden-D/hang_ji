@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="航迹协作 PC 工作台" />
+    <title>航迹协作 · PC 工作台</title>
+    <script type="module" crossorigin src="/pc/assets/index-BFAI7DLE.js"></script>
+    <link rel="stylesheet" crossorigin href="/pc/assets/index-jE3zz5tZ.css">
+  </head>
+  <body>
+    <div id="auth-screen" class="auth-screen">
+      <div class="auth-card">
+        <div class="brand-mark">HJ</div>
+        <p class="eyebrow">HANGJI OPERATIONS</p>
+        <h1>外贸订单，沿一条航线协作</h1>
+        <p id="auth-message">正在连接钉钉身份…</p>
+        <button id="auth-retry" class="button primary" type="button">重新连接</button>
+        <p class="auth-hint">请在钉钉桌面端工作台中打开本页面</p>
+      </div>
+    </div>
+
+    <div id="app" class="app-shell is-hidden">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark small">HJ</div>
+          <div><strong>航迹协作</strong><span>TRADE OPS</span></div>
+        </div>
+        <nav class="nav" aria-label="主导航">
+          <button class="nav-item active" data-view="dashboard"><span>◫</span>总览</button>
+          <button class="nav-item" data-view="orders"><span>≡</span>订单中心</button>
+          <button class="nav-item" data-view="tasks"><span>✓</span>我的待办<i id="task-badge">0</i></button>
+          <button class="nav-item admin-only" data-view="admin"><span>◎</span>管理后台</button>
+        </nav>
+        <div class="sidebar-note">
+          <span>协作规则</span>
+          <p>业务建单 → 采购逐款确认 → 物流发货</p>
+        </div>
+        <div class="account" id="account-card">
+          <div class="avatar" id="account-avatar">·</div>
+          <div><strong id="account-name">读取中</strong><span id="account-role">—</span></div>
+          <button id="logout-button" title="退出当前会话">↗</button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p id="view-kicker" class="eyebrow">OPERATIONS BOARD</p>
+            <h2 id="view-title">今日协作总览</h2>
+          </div>
+          <div class="top-actions">
+            <label class="search-box"><span>⌕</span><input id="global-search" placeholder="订单号、客户、货号或产品" /></label>
+            <button id="refresh-button" class="icon-button" title="刷新订单">↻</button>
+            <button id="create-button" class="button primary sales-only">＋ 新建确认单</button>
+          </div>
+        </header>
+
+        <div id="error-banner" class="error-banner is-hidden"></div>
+
+        <section id="view-dashboard" class="view active">
+          <div class="route-hero">
+            <div class="route-copy">
+              <p class="eyebrow">LIVE ROUTE · 实时订单流</p>
+              <h3>从确认单到装船，<br />每一步都有负责人。</h3>
+              <p id="route-summary">正在汇总订单状态…</p>
+            </div>
+            <div class="route-line" aria-label="订单流程">
+              <div class="route-stop done"><i></i><span>业务确认</span><b id="route-created">0</b></div>
+              <div class="route-stop"><i></i><span>采购执行</span><b id="route-purchase">0</b></div>
+              <div class="route-stop"><i></i><span>待发货</span><b id="route-ready">0</b></div>
+              <div class="route-stop"><i></i><span>运输中</span><b id="route-shipped">0</b></div>
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <article class="metric urgent"><span>临期订单</span><strong id="metric-urgent">0</strong><small>3 天内需出货</small></article>
+            <article class="metric"><span>采购处理中</span><strong id="metric-purchase">0</strong><small>含待采购与部分完成</small></article>
+            <article class="metric"><span>等待发货</span><strong id="metric-ready">0</strong><small>采购已全部确认</small></article>
+            <article class="metric"><span>本期已发货</span><strong id="metric-shipped">0</strong><small>已创建物流记录</small></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel wide">
+              <div class="panel-head"><div><p class="eyebrow">PRIORITY QUEUE</p><h3>优先处理</h3></div><button class="text-button" data-view-jump="tasks">查看全部待办 →</button></div>
+              <div id="priority-list" class="priority-list"></div>
+            </section>
+            <section class="panel manifest">
+              <div class="panel-head"><div><p class="eyebrow">LATEST MANIFEST</p><h3>最近订单</h3></div></div>
+              <div id="latest-list" class="latest-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-orders" class="view">
+          <div class="view-toolbar">
+            <div class="filter-tabs" id="order-filters">
+              <button class="active" data-status="all">全部</button><button data-status="pending_purchase">待采购</button><button data-status="purchasing">采购中</button><button data-status="purchased">待发货</button><button data-status="shipped">已发货</button>
+            </div>
+            <span id="order-count" class="result-count">0 条订单</span>
+          </div>
+          <div class="table-shell">
+            <table class="order-table">
+              <thead><tr><th>订单 / 客户</th><th>产品摘要</th><th>金额</th><th>最晚出货</th><th>负责人</th><th>状态</th><th></th></tr></thead>
+              <tbody id="orders-body"></tbody>
+            </table>
+            <div id="orders-empty" class="empty-state is-hidden"><strong>没有匹配的订单</strong><span>调整筛选条件，或创建新的客户确认单。</span></div>
+          </div>
+        </section>
+
+        <section id="view-tasks" class="view">
+          <div class="task-board">
+            <section><div class="column-head"><h3>采购队列</h3><span id="purchase-count">0</span></div><div id="purchase-tasks" class="task-list"></div></section>
+            <section><div class="column-head"><h3>发货队列</h3><span id="shipping-count">0</span></div><div id="shipping-tasks" class="task-list"></div></section>
+          </div>
+        </section>
+
+        <section id="view-admin" class="view">
+          <div class="panel admin-panel admin-data-panel">
+            <div class="panel-head"><div><p class="eyebrow">DATA OPERATIONS</p><h3>订单数据管理</h3></div><button id="admin-create-order" class="button primary">＋ 新增订单</button></div>
+            <div class="table-shell"><table class="member-table"><thead><tr><th>订单</th><th>客户</th><th>产品</th><th>金额</th><th>状态</th><th>数据操作</th></tr></thead><tbody id="admin-orders-body"></tbody></table></div>
+          </div>
+          <div class="panel admin-panel">
+            <div class="panel-head"><div><p class="eyebrow">ACCESS CONTROL</p><h3>成员与协作角色</h3></div><button id="admin-refresh" class="button secondary">刷新成员</button></div>
+            <div class="table-shell"><table class="member-table"><thead><tr><th>成员</th><th>钉钉 UserId</th><th>业务角色</th><th>登录状态</th><th>账号状态</th></tr></thead><tbody id="members-body"></tbody></table></div>
+          </div>
+        </section>
+      </main>
+
+      <aside id="detail-drawer" class="detail-drawer">
+        <div class="drawer-head"><button id="close-detail" class="icon-button">×</button><div><p class="eyebrow">ORDER MANIFEST</p><h3 id="detail-order-no">—</h3></div><span id="detail-status" class="status-pill">—</span></div>
+        <div id="detail-content" class="drawer-content"></div>
+        <div id="detail-actions" class="drawer-actions"></div>
+      </aside>
+      <div id="drawer-mask" class="drawer-mask"></div>
+    </div>
+
+    <dialog id="create-dialog" class="modal large-modal">
+      <form id="create-form" method="dialog">
+        <div class="modal-head"><div><p class="eyebrow">NEW CONFIRMATION</p><h3>新建客户确认单</h3></div><button class="icon-button modal-close" value="cancel">×</button></div>
+        <div class="form-scroll">
+          <section class="form-section"><h4>客户与交付</h4><div class="form-grid cols-3">
+            <label><span>客户名称 *</span><input name="customerName" required /></label><label><span>联系方式</span><input name="customerContact" /></label><label><span>目的国家/地区</span><input name="destination" /></label>
+            <label class="span-2"><span>收货地址</span><input name="shippingAddress" /></label><label><span>最晚出货日 *</span><input name="deadline" type="date" required /></label>
+            <label><span>付款方式</span><select name="paymentMethod"><option>T/T</option><option>L/C</option><option>D/P</option><option>D/A</option><option>OTHER</option></select></label><label><span>运费 USD</span><input name="freight" type="number" min="0" step="0.01" value="0" /></label><label><span>订单备注</span><input name="note" /></label>
+          </div></section>
+          <section class="form-section"><div class="section-title"><h4>产品与款式</h4><button id="add-product" type="button" class="button secondary">＋ 添加产品</button></div><div id="product-editors"></div></section>
+          <section class="form-section"><h4>付款凭证</h4><label class="upload-zone"><input id="payment-files" type="file" accept="image/*" multiple /><span>＋ 选择付款凭证</span><small>图片将上传至阿里云 OSS，最多 9 张</small></label><div id="payment-previews" class="file-previews"></div></section>
+        </div>
+        <div class="modal-foot"><button class="button secondary modal-close" value="cancel">取消</button><button id="save-order" type="submit" class="button primary">创建并同步采购</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="admin-order-dialog" class="modal large-modal">
+      <form id="admin-order-form" method="dialog">
+        <div class="modal-head"><div><p class="eyebrow">ADMIN DATA EDITOR</p><h3 id="admin-order-title">编辑订单数据</h3></div><button class="icon-button modal-close" type="button">×</button></div>
+        <div class="form-scroll">
+          <section class="form-section"><h4>订单基础数据</h4><div class="form-grid cols-3">
+            <label><span>客户名称 *</span><input name="customerName" required /></label><label><span>联系方式</span><input name="customerContact" /></label><label><span>负责人 *</span><select name="ownerUserId" id="admin-order-owner" required></select></label>
+            <label class="span-2"><span>收货地址</span><input name="shippingAddress" /></label><label><span>目的国家/地区</span><input name="destination" /></label>
+            <label><span>最晚出货日 *</span><input name="deadline" type="date" required /></label><label><span>付款方式</span><select name="paymentMethod"><option>T/T</option><option>L/C</option><option>D/P</option><option>D/A</option><option>OTHER</option></select></label><label><span>币种</span><input name="currency" maxlength="3" value="USD" required /></label>
+            <label><span>运费</span><input name="freight" type="number" min="0" step="0.01" /></label><label class="span-2"><span>备注</span><input name="note" /></label>
+          </div></section>
+          <section class="form-section"><div class="section-title"><h4>产品数据</h4><button id="admin-add-product" type="button" class="button secondary">＋ 添加产品</button></div><div id="admin-product-editors"></div></section>
+        </div>
+        <div class="modal-foot"><button class="button secondary modal-close" type="button">取消</button><button id="admin-save-order" type="submit" class="button primary">保存全部修改</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="shipment-dialog" class="modal">
+      <form id="shipment-form" method="dialog">
+        <div class="modal-head"><div><p class="eyebrow">SHIPMENT RECORD</p><h3>确认发货</h3></div><button class="icon-button modal-close" value="cancel">×</button></div>
+        <div class="form-scroll"><div class="form-grid cols-2">
+          <label><span>物流公司 *</span><input name="logisticsCompany" required /></label><label><span>物流单号 *</span><input name="trackingNo" required /></label><label><span>发货日期 *</span><input name="shippedOn" type="date" required /></label><label><span>预计到达 *</span><input name="estimatedArrivalOn" type="date" required /></label><label class="span-2"><span>备注</span><textarea name="note" rows="3"></textarea></label>
+        </div><label class="upload-zone"><input id="shipment-files" type="file" accept="image/*" multiple /><span>＋ 选择物流凭证</span><small>最多 9 张图片</small></label><div id="shipment-previews" class="file-previews"></div></div>
+        <div class="modal-foot"><button class="button secondary modal-close" value="cancel">取消</button><button id="save-shipment" type="submit" class="button primary">确认发货</button></div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast"></div>
+  </body>
+</html>

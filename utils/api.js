@@ -1,0 +1,107 @@
+const { apiBaseUrl } = require('../config');
+
+const parseData = (data) => {
+  if (typeof data !== 'string') return data;
+  try {
+    return JSON.parse(data);
+  } catch (_error) {
+    return data;
+  }
+};
+
+const request = ({ path, method = 'GET', data, authenticated = true }) => new Promise((resolve, reject) => {
+  if (typeof dd === 'undefined' || !dd.httpRequest) {
+    reject(new Error('请在钉钉客户端或开发者工具中运行'));
+    return;
+  }
+  const app = getApp();
+  const headers = { 'Content-Type': 'application/json' };
+  if (authenticated && app.globalData.sessionToken) {
+    headers.Authorization = 'Bearer ' + app.globalData.sessionToken;
+  }
+  dd.httpRequest({
+    url: apiBaseUrl + path,
+    method,
+    headers,
+    data: data === undefined ? undefined : JSON.stringify(data),
+    dataType: 'json',
+    timeout: 15000,
+    success: (res) => {
+      const body = parseData(res.data);
+      if (res.status >= 200 && res.status < 300) {
+        resolve(body);
+        return;
+      }
+      const message = body && body.error && body.error.message
+        ? body.error.message
+        : '服务请求失败（' + res.status + '）';
+      const error = new Error(message);
+      error.status = res.status;
+      error.data = body;
+      reject(error);
+    },
+    fail: (error) => reject(new Error(error.errorMessage || error.errMsg || '网络请求失败'))
+  });
+});
+
+const uploadImage = (filePath, category) => new Promise((resolve, reject) => {
+  if (typeof dd === 'undefined' || !dd.uploadFile) {
+    reject(new Error('当前钉钉版本不支持图片上传'));
+    return;
+  }
+  const token = getApp().globalData.sessionToken;
+  dd.uploadFile({
+    url: apiBaseUrl + '/api/uploads/image',
+    fileType: 'image',
+    fileName: 'file',
+    filePath,
+    header: {
+      Authorization: 'Bearer ' + token
+    },
+    formData: { category },
+    success: (res) => {
+      const body = parseData(res.data);
+      const status = Number(res.statusCode || res.status || 0);
+      if (status >= 200 && status < 300 && body && body.attachment) {
+        resolve(body.attachment);
+        return;
+      }
+      const message = body && body.error && body.error.message
+        ? body.error.message
+        : '图片上传失败（' + (status || '未知状态') + '）';
+      reject(new Error(message));
+    },
+    fail: (error) => reject(new Error(error.errorMessage || error.errMsg || '图片上传失败'))
+  });
+});
+
+const loginWithDingTalk = (code) => request({
+  path: '/api/auth/dingtalk',
+  method: 'POST',
+  data: { code },
+  authenticated: false
+});
+
+const orders = {
+  list: () => request({ path: '/api/orders?page=1&pageSize=100' }),
+  detail: (id) => request({ path: '/api/orders/' + encodeURIComponent(id) }),
+  create: (data) => request({ path: '/api/orders', method: 'POST', data }),
+  completePurchase: (id, productIds) => request({
+    path: '/api/orders/' + encodeURIComponent(id) + '/purchase-complete',
+    method: 'POST',
+    data: productIds && productIds.length ? { productIds } : {}
+  }),
+  createShipment: (id, data) => request({
+    path: '/api/orders/' + encodeURIComponent(id) + '/shipments',
+    method: 'POST',
+    data
+  })
+};
+
+const adminUsers = {
+  list: () => request({ path: '/api/admin/users' }),
+  setRole: (id, role) => request({ path: '/api/admin/users/' + encodeURIComponent(id) + '/role', method: 'PATCH', data: { role } }),
+  setActive: (id, isActive) => request({ path: '/api/admin/users/' + encodeURIComponent(id) + '/active', method: 'PATCH', data: { isActive } })
+};
+
+module.exports = { request, uploadImage, loginWithDingTalk, orders, adminUsers };

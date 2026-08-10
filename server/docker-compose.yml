@@ -1,0 +1,32 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-hangji}
+      MYSQL_USER: ${DB_USER:-hangji}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: ["sh", "-c", "node scripts/migrate.js && node src/server.js"]
+
+volumes:
+  mysql_data:

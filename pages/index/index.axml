@@ -1,0 +1,262 @@
+<view class="app-shell">
+  <view class="topbar">
+    <view class="brand">
+      <view class="brand-mark"><view class="brand-line"></view></view>
+      <view>
+        <text class="brand-name">航迹</text>
+        <text class="brand-sub">TRADE FLOW</text>
+      </view>
+    </view>
+    <view class="role-switch" onTap="toggleRoleMenu">
+      <view class="online-dot"></view>
+      <text>{{roleLabel}}</text>
+      <text class="chevron" a:if="{{currentUser.role === 'admin'}}">⌄</text>
+    </view>
+    <view class="role-menu" a:if="{{showRoleMenu}}">
+      <view class="role-item {{role === 'sales' ? 'role-item-active' : ''}}" data-role="sales" onTap="selectRole">业务视角<text>订单全局</text></view>
+      <view class="role-item {{role === 'purchase' ? 'role-item-active' : ''}}" data-role="purchase" onTap="selectRole">采购视角<text>采购待办</text></view>
+      <view class="role-item {{role === 'logistics' ? 'role-item-active' : ''}}" data-role="logistics" onTap="selectRole">物流视角<text>发货待办</text></view>
+    </view>
+  </view>
+
+  <scroll-view scroll-y class="main-scroll">
+    <view a:if="{{currentTab === 'home'}}" class="page-content">
+      <view class="hero">
+        <view class="hero-kicker">MON · AUG 10</view>
+        <view class="hero-title">让每一票货，<text>都有迹可循。</text></view>
+        <view class="hero-foot">
+          <view><text class="hero-number">{{stats.urgent}}</text><text class="hero-label">项临近交期</text></view>
+          <view class="hero-action" a:if="{{currentUser.role === 'sales' || currentUser.role === 'admin'}}" onTap="openCreate"><text>＋</text> 新建出货单</view>
+        </view>
+        <view class="route-art">
+          <view class="route-line"></view>
+          <view class="route-port port-a"><i></i><text>确认</text></view>
+          <view class="route-port port-b"><i></i><text>采购</text></view>
+          <view class="route-port port-c"><i></i><text>装运</text></view>
+          <view class="route-port port-d"><i></i><text>抵达</text></view>
+          <view class="route-vessel">➤</view>
+        </view>
+      </view>
+
+      <view class="section-head"><text>今日要事</text><text class="section-meta">按紧急程度排序</text></view>
+      <view class="urgent-card" a:if="{{urgentOrder}}" data-id="{{urgentOrder.id}}" onTap="openDetail">
+        <view class="urgent-stripe"></view>
+        <view class="urgent-top"><text class="eyebrow">{{urgentOrder.daysLeft < 0 ? '已超过交期' : (urgentOrder.daysLeft === 0 ? '今天必须发出' : urgentOrder.daysLeft + ' 天后到期')}}</text><text class="order-code">{{urgentOrder.orderNo}}</text></view>
+        <view class="urgent-customer">{{urgentOrder.customer}}</view>
+        <view class="urgent-product">{{urgentOrder.product}} · {{urgentOrder.quantity}} 件 <text>{{urgentOrder.country}}</text></view>
+        <view class="mini-progress"><view style="width: {{urgentOrder.progress}}%"></view></view>
+        <view class="urgent-bottom"><text>{{urgentOrder.statusText}}</text><text class="go">查看详情 →</text></view>
+      </view>
+      <view class="empty compact-empty" a:else><text>暂无临近交期订单</text><text>订单进度很从容</text></view>
+
+      <view class="metric-grid">
+        <view class="metric" data-tab="orders" onTap="switchTab"><text class="metric-num">{{stats.purchasing}}</text><text class="metric-name">采购进行中</text><text class="metric-arrow">↗</text></view>
+        <view class="metric metric-dark" data-tab="tasks" onTap="switchTab"><text class="metric-num">{{stats.ready}}</text><text class="metric-name">等待发货</text><text class="metric-arrow">↗</text></view>
+        <view class="metric"><text class="metric-num">{{stats.shipped}}</text><text class="metric-name">本月已发货</text><text class="metric-arrow">✓</text></view>
+      </view>
+
+      <view class="section-head"><text>最近流转</text><text class="link" data-tab="orders" onTap="switchTab">查看全部</text></view>
+      <block a:for="{{orders}}" a:for-item="item" a:for-index="idx" a:key="id">
+        <view class="compact-order" a:if="{{idx < 2}}" data-id="{{item.id}}" onTap="openDetail">
+          <view class="status-icon status-{{item.status}}">{{item.activeStep + 1}}</view>
+          <view class="compact-main"><text>{{item.customer}}</text><text>{{item.product}} · {{item.quantity}} 件</text></view>
+          <view class="compact-side"><text class="status-text status-text-{{item.status}}">{{item.statusText}}</text><text>{{item.deadline}}</text></view>
+        </view>
+      </block>
+    </view>
+
+    <view a:if="{{currentTab === 'orders'}}" class="page-content list-page">
+      <view class="page-title-row"><view><text class="page-kicker">SHIPMENT ORDERS</text><text class="page-title">出货单</text></view><view class="round-add" a:if="{{currentUser.role === 'sales' || currentUser.role === 'admin'}}" onTap="openCreate">＋</view></view>
+      <view class="search-box"><text>⌕</text><input value="{{searchValue}}" placeholder="搜索客户、单号或货号" onInput="onSearch" /></view>
+      <scroll-view scroll-x class="filter-scroll">
+        <view class="filters">
+          <view class="filter {{filter === 'all' ? 'active' : ''}}" data-filter="all" onTap="setFilter">全部 {{orders.length}}</view>
+          <view class="filter {{filter === 'purchasing' ? 'active' : ''}}" data-filter="purchasing" onTap="setFilter">采购中</view>
+          <view class="filter {{filter === 'ready' ? 'active' : ''}}" data-filter="ready" onTap="setFilter">待发货</view>
+          <view class="filter {{filter === 'shipped' ? 'active' : ''}}" data-filter="shipped" onTap="setFilter">运输中</view>
+        </view>
+      </scroll-view>
+      <view class="order-card" a:for="{{visibleOrders}}" a:key="id" data-id="{{item.id}}" onTap="openDetail">
+        <view class="order-head"><text class="order-id">{{item.orderNo}}</text><text class="pill pill-{{item.status}}">{{item.statusText}}</text></view>
+        <view class="customer-name">{{item.customer}}</view>
+        <view class="destination">{{item.country}} · 负责人 {{item.owner}}</view>
+        <view class="product-row"><view class="product-thumb">{{item.thumb}}</view><view class="product-info"><text>{{item.product}}</text><text>{{item.sku}} · {{item.quantity}} 件</text></view><view class="amount"><text>{{item.currency}}</text>{{item.amount}}</view></view>
+        <view class="flow-track">
+          <view class="flow-fill" style="width: {{item.progress}}%"></view>
+          <view class="flow-node {{index <= item.activeStep ? 'done' : ''}}" a:for="{{item.steps}}" a:for-item="step" a:for-index="index"><i></i><text>{{step}}</text></view>
+        </view>
+        <view class="deadline {{item.daysLeft === 0 ? 'deadline-hot' : ''}}"><text>交期</text><text>{{item.deadline}}</text></view>
+      </view>
+      <view class="empty" a:if="{{loading}}"><text>正在同步订单</text><text>请稍候</text></view>
+      <view class="empty" a:elif="{{apiError}}" onTap="loadOrders"><text>订单同步失败</text><text>{{apiError}} · 点击重试</text></view>
+      <view class="empty" a:elif="{{visibleOrders.length === 0}}"><text>没有匹配的出货单</text><text>试试更换筛选条件</text></view>
+    </view>
+
+    <view a:if="{{currentTab === 'tasks'}}" class="page-content list-page">
+      <view class="page-title-row"><view><text class="page-kicker">ACTION QUEUE</text><text class="page-title">待办队列</text></view><view class="task-count">{{taskOrders.length}} 项</view></view>
+      <view class="role-banner"><view class="role-avatar">{{role === 'logistics' ? '物' : '采'}}</view><view><text>{{role === 'logistics' ? '物流执行台' : '采购执行台'}}</text><text>{{role === 'logistics' ? '检查包装并回填物流信息' : '按明细确认到货，不再遗漏颜色款式'}}</text></view></view>
+      <view class="section-label">优先处理</view>
+      <block a:for="{{taskOrders}}" a:key="id">
+        <view class="task-card">
+          <view class="task-accent accent-{{item.status}}"></view>
+          <view class="task-head"><text>{{item.status === 'ready' ? '等待发货' : '等待采购确认'}}</text><text>{{item.deadline}}</text></view>
+          <view class="task-title">{{item.product}}</view>
+          <view class="task-sub">{{item.customer}} · {{item.sku}}</view>
+          <view class="task-data"><view><text>数量</text><text>{{item.quantity}} 件</text></view><view><text>{{item.status === 'ready' ? '目的港' : '采购预算'}}</text><text>{{item.status === 'ready' ? item.country : item.currency + ' ' + item.amount}}</text></view></view>
+          <button class="task-button {{item.status === 'ready' ? 'button-dark' : ''}}" data-id="{{item.id}}" catchTap="advanceOrder">{{item.status === 'ready' ? '确认打包并发货' : '全部采购完成'}}</button>
+        </view>
+      </block>
+      <view class="empty" a:if="{{!loading && taskOrders.length === 0}}"><text>当前没有待办</text><text>新的流转任务会自动出现在这里</text></view>
+    </view>
+
+    <view a:if="{{currentTab === 'mine'}}" class="page-content profile-page">
+      <view class="profile-head">
+        <view class="avatar"><image a:if="{{currentUser.avatarUrl}}" src="{{currentUser.avatarUrl}}" mode="aspectFill" /><text a:else>{{currentUser.initial}}</text></view>
+        <view><text>{{currentUser.name}}</text><text>{{currentUser.subtitle}}</text></view>
+      </view>
+      <view class="profile-card"><view><text>应用角色</text><text>{{currentUser.roleText}}</text></view><view><text>员工工号</text><text>{{currentUser.jobNumber || '—'}}</text></view><view><text>账号状态</text><text>已登录</text></view></view>
+      <view class="profile-section-title">职位与角色</view>
+      <view class="position-card">
+        <view class="position-row"><text>岗位职称</text><text>{{currentUser.title || '未填写'}}</text></view>
+        <view class="position-row"><text>钉钉角色</text><text>{{currentUser.dingRoleText}}</text></view>
+        <view class="position-row"><text>管理身份</text><text>{{currentUser.identityText}}</text></view>
+        <view class="position-row"><text>航迹权限</text><text>{{currentUser.roleText}}</text></view>
+      </view>
+      <view class="profile-section-title">钉钉用户资料</view>
+      <view class="menu-card user-info-card">
+        <view class="menu-item"><text>☎</text><view>手机号<text>{{currentUser.mobile || '未授权或未填写'}}</text></view></view>
+        <view class="menu-item"><text>＠</text><view>邮箱<text>{{currentUser.orgEmail || currentUser.email || '未授权或未填写'}}</text></view></view>
+        <view class="menu-item"><text>⌖</text><view>办公地点<text>{{currentUser.workPlace || '未填写'}}</text></view></view>
+        <view class="menu-item"><text>＃</text><view>钉钉 UserId<text>{{currentUser.dingUserId || '获取中'}}</text></view></view>
+      </view>
+      <view class="profile-tip">岗位、角色来自企业通讯录；航迹权限由本应用管理员配置</view>
+      <view class="admin-entry" a:if="{{currentUser.role === 'admin'}}" onTap="openUserAdmin"><view><text>成员与权限</text><text>管理业务、采购、物流角色和账号状态</text></view><text>›</text></view>
+      <view class="version">航迹协作 V1.0</view>
+    </view>
+    <view class="scroll-spacer"></view>
+  </scroll-view>
+
+  <view class="tabbar">
+    <view class="tab {{currentTab === 'home' ? 'tab-active' : ''}}" data-tab="home" onTap="switchTab"><view class="tab-icon">⌂</view><text>概览</text></view>
+    <view class="tab {{currentTab === 'orders' ? 'tab-active' : ''}}" data-tab="orders" onTap="switchTab"><view class="tab-icon">▤</view><text>出货单</text></view>
+    <view class="create-tab" onTap="openCreate"><view>＋</view><text>新建</text></view>
+    <view class="tab {{currentTab === 'tasks' ? 'tab-active' : ''}}" data-tab="tasks" onTap="switchTab"><view class="tab-icon">✓</view><text>待办</text><i></i></view>
+    <view class="tab {{currentTab === 'mine' ? 'tab-active' : ''}}" data-tab="mine" onTap="switchTab"><view class="tab-icon">○</view><text>我的</text></view>
+  </view>
+
+  <view class="modal-mask" a:if="{{showCreate}}" onTap="closeCreate">
+    <view class="sheet create-sheet" catchTap="stopBubble">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title"><view><text>新建出货单</text><text>填写关键字段，明细稍后可继续补充</text></view><text class="sheet-close" onTap="closeCreate">×</text></view>
+      <scroll-view scroll-y class="form-scroll">
+        <view class="form-section-title">客户与交付</view>
+        <view class="field"><text>客户名称 *</text><input data-field="customer" value="{{form.customer}}" onInput="updateForm" placeholder="例如 NORDHAUS GmbH" /></view>
+        <view class="field"><text>客户联系方式</text><input data-field="customerContact" value="{{form.customerContact}}" onInput="updateForm" placeholder="电话或邮箱" /></view>
+        <view class="field"><text>收货地址</text><input data-field="shippingAddress" value="{{form.shippingAddress}}" onInput="updateForm" placeholder="客户完整收货地址" /></view>
+        <view class="field"><text>国家 / 目的港</text><input data-field="country" value="{{form.country}}" onInput="updateForm" placeholder="例如 德国 · 汉堡" /></view>
+        <view class="field"><text>最晚出货日 *</text><input data-field="deadline" value="{{form.deadline}}" onInput="updateForm" placeholder="YYYY-MM-DD，例如 2026-08-18" /></view>
+        <view class="form-section-title product-section-head"><text>产品明细 · {{form.products.length}} 款</text><text>每个颜色款式单独一条</text></view>
+        <view class="product-editor" a:for="{{form.products}}" a:for-item="product" a:for-index="productIndex">
+          <view class="product-editor-head"><view><text>产品 {{productIndex + 1}}</text><text>{{product.name || '未命名产品'}}{{product.variant ? ' / ' + product.variant : ''}}</text></view><text class="remove-product" data-index="{{productIndex}}" onTap="removeProduct">删除</text></view>
+          <view class="product-upload" data-index="{{productIndex}}" onTap="uploadProductImages">
+            <view class="upload-empty" a:if="{{!product.images.length}}"><text>＋</text><text>{{uploading ? '正在上传…' : '拍照或选择产品图片'}}</text><text>安全存储至阿里云 OSS · 最多 9 张</text></view>
+            <scroll-view a:else scroll-x class="image-preview-scroll">
+              <view class="image-preview-list">
+                <view class="oss-file" a:for="{{product.images}}" a:for-item="attachment" a:for-index="imageIndex" a:key="objectKey">
+                  <image src="{{attachment.url}}" mode="aspectFill" />
+                  <text>{{attachment.fileName}}</text>
+                  <text class="remove-image" data-product-index="{{productIndex}}" data-image-index="{{imageIndex}}" catchTap="removeProductImage">×</text>
+                </view>
+                <view class="image-more">＋<text>继续添加</text></view>
+              </view>
+            </scroll-view>
+          </view>
+          <view class="field-row"><view class="field half"><text>货号 *</text><input data-index="{{productIndex}}" data-field="sku" value="{{product.sku}}" onInput="updateProductField" placeholder="SKU-001" /></view><view class="field half"><text>产品名称 *</text><input data-index="{{productIndex}}" data-field="name" value="{{product.name}}" onInput="updateProductField" placeholder="产品名称" /></view></view>
+          <view class="field"><text>颜色款式 *</text><input data-index="{{productIndex}}" data-field="variant" value="{{product.variant}}" onInput="updateProductField" placeholder="例如 奶油白 / 加厚款" /></view>
+          <view class="field-row"><view class="field half"><text>装箱数（件/箱）</text><input type="number" data-index="{{productIndex}}" data-field="unitsPerCarton" value="{{product.unitsPerCarton}}" onInput="updateProductField" placeholder="0" /></view><view class="field half"><text>箱数</text><input type="number" data-index="{{productIndex}}" data-field="cartons" value="{{product.cartons}}" onInput="updateProductField" placeholder="0" /></view></view>
+          <view class="field-row"><view class="field half"><text>重量（kg）</text><input type="digit" data-index="{{productIndex}}" data-field="weight" value="{{product.weight}}" onInput="updateProductField" placeholder="0.00" /></view><view class="field half"><text>体积（m³）</text><input type="digit" data-index="{{productIndex}}" data-field="volume" value="{{product.volume}}" onInput="updateProductField" placeholder="0.00" /></view></view>
+          <view class="field-row"><view class="field half"><text>数量 *</text><input type="number" data-index="{{productIndex}}" data-field="quantity" value="{{product.quantity}}" onInput="updateProductField" placeholder="0" /></view><view class="field half"><text>单价（USD）</text><input type="digit" data-index="{{productIndex}}" data-field="unitPrice" value="{{product.unitPrice}}" onInput="updateProductField" placeholder="0.00" /></view></view>
+          <view class="field-row"><view class="field half total-field"><text>总价（自动计算）</text><view>USD {{product.totalPrice}}</view></view><view class="field half"><text>采购成本（USD）</text><input type="digit" data-index="{{productIndex}}" data-field="purchaseCost" value="{{product.purchaseCost}}" onInput="updateProductField" placeholder="0.00" /></view></view>
+        </view>
+        <view class="add-product" onTap="addProduct"><text>＋</text><view><text>添加产品或款式</text><text>不同颜色、规格建议分开记录</text></view></view>
+        <view class="field"><text>付款方式</text><view class="select-value" onTap="choosePayment">{{form.payment}}<text>切换 ›</text></view></view>
+        <view class="field"><text>运费（USD）</text><input type="digit" data-field="freight" value="{{form.freight}}" onInput="updateForm" placeholder="0.00" /></view>
+        <view class="field"><text>订单备注</text><input data-field="note" value="{{form.note}}" onInput="updateForm" placeholder="包装、交付或客户要求" /></view>
+        <view class="shipment-upload" onTap="uploadPaymentAttachments"><text>＋ 上传付款凭证</text><text>已添加 {{form.paymentAttachments.length}} / 9</text></view>
+        <view class="shipment-files" a:if="{{form.paymentAttachments.length}}"><view a:for="{{form.paymentAttachments}}" a:for-item="attachment" a:for-index="index" a:key="objectKey"><text>{{attachment.fileName}}</text><text data-index="{{index}}" catchTap="removePaymentAttachment">×</text></view></view>
+        <view class="form-space"></view>
+      </scroll-view>
+      <view class="sheet-submit"><button disabled="{{submitting || uploading}}" onTap="createOrder">{{uploading ? '图片上传中…' : (submitting ? '正在创建…' : '创建并同步采购')}}</button></view>
+    </view>
+  </view>
+
+  <view class="modal-mask" a:if="{{showDetail}}" onTap="closeDetail">
+    <view class="sheet detail-sheet" catchTap="stopBubble">
+      <view class="sheet-handle"></view>
+      <view class="detail-top"><view><text>{{detail.orderNo}}</text><text>{{detail.customer}}</text></view><text class="pill pill-{{detail.status}}">{{detail.statusText}}</text></view>
+      <view class="empty detail-loading" a:if="{{detailLoading}}"><text>正在读取订单详情</text></view>
+      <scroll-view a:else scroll-y class="detail-products-scroll">
+        <view class="detail-product-count">产品明细 · {{detail.productCount}} 款</view>
+        <view class="detail-product multi-detail-product" a:for="{{detail.products}}" a:for-item="product" a:for-index="productIndex" a:key="sku">
+          <view class="detail-thumb"><image a:if="{{product.images.length && product.images[0].url}}" src="{{product.images[0].url}}" mode="aspectFill" /><text a:else>{{product.sku}}</text></view>
+          <view class="detail-product-main">
+            <text>{{product.name}} / {{product.variant}}</text>
+            <text>{{product.sku}} · {{product.quantity}} 件 · USD {{product.totalPrice}}</text>
+            <view class="detail-spec-grid">
+              <view><text>装箱数</text><text>{{product.unitsPerCarton}} 件/箱</text></view>
+              <view><text>箱数</text><text>{{product.cartons}} 箱</text></view>
+              <view><text>重量</text><text>{{product.weight}} kg</text></view>
+              <view><text>体积</text><text>{{product.volume}} m³</text></view>
+              <view><text>单价</text><text>USD {{product.unitPrice}}</text></view>
+              <view><text>采购成本</text><text>USD {{product.purchaseCost}}</text></view>
+            </view>
+            <view class="product-purchase-row">
+              <text class="product-purchase-status {{product.purchaseStatus === 'completed' ? 'is-completed' : ''}}">{{product.purchaseStatus === 'completed' ? '已采购' : '待采购'}}</text>
+              <text a:if="{{product.purchaseStatus !== 'completed' && (currentUser.role === 'purchase' || currentUser.role === 'admin')}}" class="product-purchase-action" data-order-id="{{detail.id}}" data-product-id="{{product.id}}" catchTap="completeProductPurchase">确认此款采购</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="detail-note"><text>当前动态</text><text>{{detail.note}}</text></view>
+      <view class="detail-grid"><view><text>目的地</text><text>{{detail.country}}</text></view><view><text>最晚出货</text><text>{{detail.deadline}}</text></view><view><text>负责人</text><text>{{detail.owner}}</text></view><view><text>完成度</text><text>{{detail.progress}}%</text></view></view>
+      <button a:if="{{!detailLoading && (currentUser.role === 'purchase' || currentUser.role === 'admin') && (detail.apiStatus === 'pending_purchase' || detail.apiStatus === 'purchasing')}}" disabled="{{submitting}}" class="detail-action" data-id="{{detail.id}}" onTap="advanceOrder">{{submitting ? '正在提交…' : '标记全部采购完成'}}</button>
+      <button a:elif="{{!detailLoading && (currentUser.role === 'logistics' || currentUser.role === 'admin') && detail.apiStatus === 'purchased'}}" class="detail-action" data-id="{{detail.id}}" onTap="advanceOrder">填写物流并确认发货</button>
+      <button a:elif="{{!detailLoading && detail.apiStatus === 'shipped'}}" class="detail-action action-light" onTap="closeDetail">{{detail.shipment ? detail.shipment.logisticsCompany + ' · ' + detail.shipment.trackingNo : '订单已发货'}}</button>
+    </view>
+  </view>
+
+  <view class="modal-mask" a:if="{{showShipment}}" onTap="closeShipment">
+    <view class="sheet shipment-sheet" catchTap="stopBubble">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title"><view><text>确认打包发货</text><text>物流信息提交后将通知业务负责人</text></view><text class="sheet-close" onTap="closeShipment">×</text></view>
+      <view class="shipment-form">
+        <view class="field"><text>物流公司 *</text><input data-field="logisticsCompany" value="{{shippingForm.logisticsCompany}}" onInput="updateShippingForm" placeholder="例如 DHL" /></view>
+        <view class="field"><text>物流单号 *</text><input data-field="trackingNo" value="{{shippingForm.trackingNo}}" onInput="updateShippingForm" placeholder="请输入运单号" /></view>
+        <view class="field-row"><view class="field half"><text>发货日期 *</text><input data-field="shippedOn" value="{{shippingForm.shippedOn}}" onInput="updateShippingForm" placeholder="YYYY-MM-DD" /></view><view class="field half"><text>预计到达 *</text><input data-field="estimatedArrivalOn" value="{{shippingForm.estimatedArrivalOn}}" onInput="updateShippingForm" placeholder="YYYY-MM-DD" /></view></view>
+        <view class="field"><text>备注</text><input data-field="note" value="{{shippingForm.note}}" onInput="updateShippingForm" placeholder="包装、清关或交付说明" /></view>
+        <view class="shipment-upload" onTap="uploadShipmentAttachments"><text>＋ 上传物流凭证</text><text>已添加 {{shippingForm.attachments.length}} / 9</text></view>
+        <view class="shipment-files" a:if="{{shippingForm.attachments.length}}"><view a:for="{{shippingForm.attachments}}" a:for-item="attachment" a:for-index="index" a:key="objectKey"><text>{{attachment.fileName}}</text><text data-index="{{index}}" onTap="removeShipmentAttachment">×</text></view></view>
+      </view>
+      <view class="sheet-submit"><button disabled="{{submitting || uploading}}" onTap="submitShipment">{{uploading ? '图片上传中…' : (submitting ? '正在发货…' : '确认发货')}}</button></view>
+    </view>
+  </view>
+
+  <view class="modal-mask" a:if="{{showUserAdmin}}" onTap="closeUserAdmin">
+    <view class="sheet user-admin-sheet" catchTap="stopBubble">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title"><view><text>成员与权限</text><text>点击角色可依次切换，账号状态可独立启停</text></view><text class="sheet-close" onTap="closeUserAdmin">×</text></view>
+      <view class="empty" a:if="{{userAdminLoading}}"><text>正在读取成员</text></view>
+      <scroll-view a:else scroll-y class="user-admin-list">
+        <view class="user-admin-item" a:for="{{adminUsers}}" a:key="id">
+          <view class="user-mini-avatar">{{item.initial}}</view>
+          <view class="user-admin-main"><text>{{item.name}}</text><text>{{item.ding_user_id}}</text></view>
+          <view class="user-role-control" data-id="{{item.id}}" onTap="cycleUserRole">{{item.roleText}}</view>
+          <view class="user-active-control {{item.isActive ? 'is-active' : ''}}" data-id="{{item.id}}" onTap="toggleUserActive">{{item.isActive ? '启用' : '停用'}}</view>
+        </view>
+        <view class="form-space"></view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <view class="toast" a:if="{{toast}}"><text>✓</text>{{toast}}</view>
+</view>

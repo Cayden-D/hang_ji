@@ -294,6 +294,15 @@ tbody tr:hover { background: #f8fbfb; }
 .purchase-cost-field { display: block; width: 142px; margin-top: 9px; text-align: left; }
 .purchase-cost-field span { display: block; color: var(--muted); font-size: 8px; }
 .purchase-cost-field input { width: 100%; height: 30px; margin-top: 4px; padding: 0 8px; box-sizing: border-box; border: 1px solid #b9cdd2; background: #f5f9f9; color: var(--sea); font-family: var(--mono); font-size: 11px; font-weight: 800; text-align: right; }
+.whole-purchase-card { display: grid; grid-template-columns: 1fr 180px; align-items: end; gap: 28px; margin: 22px 0; padding: 22px 24px; border-left: 5px solid var(--orange); background: #12333d; color: #fff; box-shadow: 0 14px 30px rgba(18, 51, 61, .15); }
+.whole-purchase-card h4 { margin: 5px 0 7px; color: #fff; font-size: 19px; }
+.whole-purchase-card p { max-width: 470px; margin: 0; color: rgba(255,255,255,.62); font-size: 11px; line-height: 1.65; }
+.whole-purchase-kicker { color: #ffb38b; font-family: var(--mono); font-size: 8px; font-weight: 800; letter-spacing: .16em; }
+.whole-purchase-card label > span { display: block; margin-bottom: 6px; color: rgba(255,255,255,.68); font-size: 9px; font-weight: 700; }
+.whole-purchase-card label > div { display: flex; align-items: center; height: 42px; padding: 0 11px; border: 1px solid rgba(255,255,255,.24); background: rgba(255,255,255,.09); }
+.whole-purchase-card b { color: #ffb38b; font-family: var(--mono); font-size: 10px; }
+.whole-purchase-card input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: #fff; font-family: var(--mono); font-size: 16px; font-weight: 800; text-align: right; }
+.whole-purchase-card input::placeholder { color: rgba(255,255,255,.35); }
 .purchase-cost-saved { display: block; margin-top: 8px; color: var(--sea); font-family: var(--mono); font-size: 9px; }
 .detail-note { padding: 15px; border-left: 3px solid var(--sea); background: var(--sea-soft); color: var(--ink-2); font-size: 12px; line-height: 1.7; }
 .attachment-list { display: flex; flex-wrap: wrap; gap: 8px; }

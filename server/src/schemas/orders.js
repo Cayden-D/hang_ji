@@ -55,12 +55,17 @@ export const listOrdersSchema = z.object({
 
 export const purchaseSchema = z.object({
   productIds: z.array(z.string().uuid()).min(1).max(100).optional(),
+  purchaseTotal: money.optional(),
   products: z.array(z.object({
     id: z.string().uuid(),
     purchaseCost: money
   })).min(1).max(100).optional()
 }).refine((value) => !value.productIds || !value.products, {
   message: 'Use either productIds or products, not both'
+}).refine((value) => value.purchaseTotal === undefined || (!value.productIds && !value.products), {
+  message: 'Whole-order purchase total cannot be combined with product-level updates'
+}).refine((value) => value.purchaseTotal !== undefined || Boolean(value.productIds) || Boolean(value.products), {
+  message: 'Provide a whole-order purchase total or product-level updates'
 });
 
 export const shipmentSchema = z.object({

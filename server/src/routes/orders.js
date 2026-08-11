@@ -243,7 +243,7 @@ router.delete('/:id', requireRoles('admin'), async (req, res) => {
 });
 
 router.post('/:id/purchase-complete', requireRoles('purchase', 'admin'), validate(purchaseSchema), async (req, res) => {
-  const { productIds, products: purchaseUpdates } = req.body;
+  const { productIds, purchaseTotal, products: purchaseUpdates } = req.body;
   let transition;
   await withTransaction(async (connection) => {
     const [orders] = await connection.execute('SELECT * FROM orders WHERE id = ? FOR UPDATE', [req.params.id]);
@@ -280,16 +280,20 @@ router.post('/:id/purchase-complete', requireRoles('purchase', 'admin'), validat
       [order.id]
     );
     const nextStatus = derivePurchaseStatus(Number(counts[0].completed), Number(counts[0].total));
+    const finalPurchaseTotal = purchaseTotal === undefined
+      ? Number(counts[0].purchase_total || 0)
+      : Number(purchaseTotal);
     await connection.execute(
       'UPDATE orders SET status = ?, purchase_total = ?, version = version + 1 WHERE id = ?',
-      [nextStatus, Number(counts[0].purchase_total || 0), order.id]
+      [nextStatus, finalPurchaseTotal, order.id]
     );
     await connection.execute(
       `INSERT INTO order_status_history (order_id, from_status, to_status, action, actor_user_id, detail)
        VALUES (?, ?, ?, 'purchase_completed', ?, ?)`,
       [order.id, order.status, nextStatus, req.user.sub, JSON.stringify({
         productIds: targets.map((item) => item.id),
-        purchaseCosts: purchaseUpdates || null
+        purchaseCosts: purchaseUpdates || null,
+        purchaseTotal: purchaseTotal === undefined ? null : purchaseTotal
       })]
     );
     transition = { from: order.status, to: nextStatus, ownerUserId: order.owner_user_id, orderNo: order.order_no };

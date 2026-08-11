@@ -57,6 +57,22 @@ test('purchase completion rejects negative actual cost', () => {
   }).success, false);
 });
 
+test('purchase completion accepts a whole-order total cost', () => {
+  const parsed = purchaseSchema.parse({ purchaseTotal: 8800.5 });
+  assert.equal(parsed.purchaseTotal, 8800.5);
+});
+
+test('purchase completion rejects mixing whole-order and product costs', () => {
+  assert.equal(purchaseSchema.safeParse({
+    purchaseTotal: 8800,
+    products: [{ id: '3a9d7165-6089-4692-a1ab-a62139981600', purchaseCost: 1288.5 }]
+  }).success, false);
+});
+
+test('purchase completion rejects an empty whole-order confirmation', () => {
+  assert.equal(purchaseSchema.safeParse({}).success, false);
+});
+
 test('shipment rejects arrival before shipment', () => {
   const result = shipmentSchema.safeParse({
     logisticsCompany: 'DHL', trackingNo: '123', shippedOn: '2026-08-20', estimatedArrivalOn: '2026-08-19'

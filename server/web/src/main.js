@@ -563,9 +563,15 @@ function renderDetail() {
       : canPurchase() ? `<label class="purchase-cost-field"><span>实际采购成本 USD</span><input data-purchase-cost="${product.id}" type="number" min="0" step="0.01" value="${Number(product.purchaseCost || 0)}" /></label><button data-purchase-product="${product.id}">保存成本并确认</button>` : '<span class="status-pill">待采购</span>'}</aside>
   </article>`).join('');
   const attachments = [...(order.paymentAttachments || []), ...(order.shipment?.attachments || [])];
+  const showWholePurchase = canPurchase() && ['pending_purchase', 'purchasing'].includes(order.status);
+  const purchaseTotalValue = order.purchaseTotal == null ? '' : Number(order.purchaseTotal);
   $('#detail-content').innerHTML = `
     <div class="detail-summary"><div><span>客户</span><strong>${escapeHtml(order.customerName)}</strong></div><div><span>订单总额</span><strong>${escapeHtml(order.currency)} ${money(order.totalAmount)}</strong></div><div><span>最晚出货</span><strong>${escapeHtml(String(order.deadline).slice(0,10))}</strong></div></div>
     <section class="detail-block"><h4>产品明细 · ${order.products?.length || 0} 款</h4>${productMarkup || emptyMarkup('暂无产品')}</section>
+    ${showWholePurchase ? `<section class="whole-purchase-card">
+      <div><span class="whole-purchase-kicker">WHOLE ORDER COST</span><h4>整单快速确认</h4><p>填写一笔总采购成本，即可确认所有剩余款式；无需逐款补齐成本。</p></div>
+      <label><span>整单总采购成本</span><div><b>USD</b><input id="whole-purchase-total" type="number" min="0" step="0.01" value="${purchaseTotalValue}" placeholder="0.00" /></div></label>
+    </section>` : ''}
     <section class="detail-block"><h4>财务结算</h4><div class="detail-note">到账人民币：${order.receivedCny == null ? '尚未填写' : `¥${money(order.receivedCny)}`}<br />结算汇率：${order.exchangeRate || '按订单日期自动换算'} · ${order.isCompleted ? '已完结' : '未完结'}</div></section>
     <section class="detail-block"><h4>交付信息</h4><div class="detail-note">${escapeHtml(order.shippingAddress || order.destination || '尚未填写交付地址')}<br />${escapeHtml(order.note || '无补充说明')}</div></section>
     ${order.shipment ? `<section class="detail-block"><h4>物流记录</h4><div class="detail-note">${escapeHtml(order.shipment.logisticsCompany)} · ${escapeHtml(order.shipment.trackingNo)}<br />${escapeHtml(String(order.shipment.shippedOn).slice(0,10))} → ${escapeHtml(String(order.shipment.estimatedArrivalOn).slice(0,10))}</div></section>` : ''}
@@ -580,7 +586,7 @@ function renderDetail() {
     }
     actions.push('<button class="button danger" data-admin-delete-detail>删除订单</button>');
   }
-  if (canPurchase() && ['pending_purchase', 'purchasing'].includes(order.status)) actions.push('<button class="button primary" data-purchase-all>标记全部采购完成</button>');
+  if (canPurchase() && ['pending_purchase', 'purchasing'].includes(order.status)) actions.push('<button class="button primary" data-purchase-all>按整单总成本完成采购</button>');
   if (canShip() && order.status === 'purchased') actions.push('<button class="button primary" data-open-shipment>填写物流并确认发货</button>');
   $('#detail-actions').innerHTML = actions.join('');
 }
@@ -590,27 +596,38 @@ const canShip = () => ['logistics', 'admin'].includes(state.user?.role);
 
 async function completePurchase(productIds) {
   if (!state.currentDetail || state.busy) return;
-  const pending = (state.currentDetail.products || []).filter((item) =>
-    item.purchaseStatus !== 'completed' && (!productIds || productIds.includes(item.id))
-  );
-  const products = pending.map((item) => {
-    const input = document.querySelector(`[data-purchase-cost="${item.id}"]`);
-    return { id: item.id, purchaseCost: input ? input.value : '' };
-  });
-  if (!products.length) return toast('没有可确认的待采购产品');
-  if (products.some((item) => item.purchaseCost === '' || Number(item.purchaseCost) < 0)) {
-    return toast('请填写待采购产品的实际采购成本');
+  let body;
+  if (productIds) {
+    const pending = (state.currentDetail.products || []).filter((item) =>
+      item.purchaseStatus !== 'completed' && productIds.includes(item.id)
+    );
+    const products = pending.map((item) => {
+      const input = document.querySelector(`[data-purchase-cost="${item.id}"]`);
+      return { id: item.id, purchaseCost: input ? input.value : '' };
+    });
+    if (!products.length) return toast('没有可确认的待采购产品');
+    if (products.some((item) => item.purchaseCost === '' || !Number.isFinite(Number(item.purchaseCost)) || Number(item.purchaseCost) < 0)) {
+      return toast('请填写该产品的实际采购成本');
+    }
+    body = { products: products.map((item) => ({ id: item.id, purchaseCost: Number(item.purchaseCost) })) };
+  } else {
+    const input = $('#whole-purchase-total');
+    const purchaseTotal = input ? input.value : '';
+    if (purchaseTotal === '' || !Number.isFinite(Number(purchaseTotal)) || Number(purchaseTotal) < 0) {
+      return toast('请填写整单采购总成本');
+    }
+    body = { purchaseTotal: Number(purchaseTotal) };
   }
   setBusy(true);
   try {
     const result = await api(`/api/orders/${state.currentDetail.id}/purchase-complete`, {
       method: 'POST',
-      body: JSON.stringify({ products: products.map((item) => ({ id: item.id, purchaseCost: Number(item.purchaseCost) })) })
+      body: JSON.stringify(body)
     });
     state.currentDetail = result.order;
     replaceOrder(result.order);
     renderDetail();
-    toast(productIds ? '采购成本已保存，该产品已确认采购' : '全部采购成本已保存');
+    toast(productIds ? '采购成本已保存，该产品已确认采购' : '整单采购总成本已保存');
   } catch (error) {
     toast(`采购确认失败：${error.message}`);
   } finally { setBusy(false); }

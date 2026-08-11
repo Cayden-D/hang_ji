@@ -87,6 +87,7 @@ Page({
     showDetail: false,
     detail: {},
     detailLoading: false,
+    purchaseTotalDraft: '',
     filter: 'all',
     searchValue: '',
     orders: [],
@@ -669,10 +670,16 @@ Page({
 
   async openDetail(e) {
     const id = e.currentTarget.dataset.id;
-    this.setData({ showDetail: true, detailLoading: true, detail: this.data.orders.find((item) => item.id === id) || {} });
+    this.setData({ showDetail: true, detailLoading: true, detail: this.data.orders.find((item) => item.id === id) || {}, purchaseTotalDraft: '' });
     try {
       const result = await api.orders.detail(id);
-      this.setData({ detail: mapOrder(result.order), detailLoading: false });
+      this.setData({
+        detail: mapOrder(result.order),
+        detailLoading: false,
+        purchaseTotalDraft: result.order.purchaseTotal === null || result.order.purchaseTotal === undefined
+          ? ''
+          : String(result.order.purchaseTotal)
+      });
     } catch (error) {
       console.error('加载订单详情失败', error);
       this.setData({ detailLoading: false, showDetail: false });
@@ -697,21 +704,25 @@ Page({
     if (!['pending_purchase', 'purchasing'].includes(order.apiStatus)) return;
     if (!this.data.showDetail) {
       this.openDetail(e);
-      this.showToast('请填写各产品实际采购成本');
+      this.showToast('请填写整单采购总成本');
       return;
     }
-    const pendingProducts = (order.products || []).filter((item) => item.purchaseStatus !== 'completed');
-    if (pendingProducts.some((item) => item.purchaseCost === '' || item.purchaseCost === null || item.purchaseCost === undefined)) {
-      this.showToast('请填写全部待采购产品的实际采购成本');
+    const totalValue = this.data.purchaseTotalDraft;
+    if (totalValue === '' || totalValue === null || totalValue === undefined) {
+      this.showToast('请填写整单采购总成本');
       return;
     }
-    const updates = pendingProducts.map((item) => ({ id: item.id, purchaseCost: Number(item.purchaseCost) }));
+    const purchaseTotal = Number(totalValue);
+    if (!isFinite(purchaseTotal) || purchaseTotal < 0) {
+      this.showToast('整单采购总成本必须是大于或等于 0 的数字');
+      return;
+    }
     this.setData({ submitting: true });
     try {
-      const result = await api.orders.completePurchase(id, null, updates);
+      const result = await api.orders.completePurchase(id, null, null, purchaseTotal);
       this.replaceOrder(mapOrder(result.order));
       this.setData({ submitting: false, showDetail: false });
-      this.showToast('采购成本已保存，订单已同步至物流');
+      this.showToast('整单采购总成本已保存，订单已同步至物流');
     } catch (error) {
       console.error('采购确认失败', error);
       this.setData({ submitting: false });
@@ -722,6 +733,10 @@ Page({
   updatePurchaseCost(e) {
     const index = Number(e.currentTarget.dataset.index);
     this.setData({ ['detail.products[' + index + '].purchaseCost']: e.detail.value });
+  },
+
+  updatePurchaseTotal(e) {
+    this.setData({ purchaseTotalDraft: e.detail.value });
   },
 
   async completeProductPurchase(e) {

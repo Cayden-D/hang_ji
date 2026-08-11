@@ -290,9 +290,19 @@
           </view>
         </view>
       </scroll-view>
+      <view class="order-purchase-total-editor" a:if="{{!detailLoading && (currentUser.role === 'purchase' || currentUser.role === 'admin') && (detail.apiStatus === 'pending_purchase' || detail.apiStatus === 'purchasing')}}">
+        <view class="order-purchase-total-copy">
+          <text>整单快速确认</text>
+          <text>填写总采购成本后，将一次确认所有剩余款式</text>
+        </view>
+        <view class="order-purchase-total-input">
+          <text>USD</text>
+          <input type="digit" value="{{purchaseTotalDraft}}" onInput="updatePurchaseTotal" placeholder="0.00" />
+        </view>
+      </view>
       <view class="detail-note"><text>当前动态</text><text>{{detail.note}}</text></view>
       <view class="detail-grid"><view><text>目的地</text><text>{{detail.country}}</text></view><view><text>最晚出货</text><text>{{detail.deadline}}</text></view><view><text>负责人</text><text>{{detail.owner}}</text></view><view><text>完成度</text><text>{{detail.progress}}%</text></view></view>
-      <button a:if="{{!detailLoading && (currentUser.role === 'purchase' || currentUser.role === 'admin') && (detail.apiStatus === 'pending_purchase' || detail.apiStatus === 'purchasing')}}" disabled="{{submitting}}" class="detail-action" data-id="{{detail.id}}" onTap="advanceOrder">{{submitting ? '正在提交…' : '保存全部采购成本并完成'}}</button>
+      <button a:if="{{!detailLoading && (currentUser.role === 'purchase' || currentUser.role === 'admin') && (detail.apiStatus === 'pending_purchase' || detail.apiStatus === 'purchasing')}}" disabled="{{submitting}}" class="detail-action" data-id="{{detail.id}}" onTap="advanceOrder">{{submitting ? '正在提交…' : '按整单总成本完成采购'}}</button>
       <button a:elif="{{!detailLoading && (currentUser.role === 'logistics' || currentUser.role === 'admin') && detail.apiStatus === 'purchased'}}" class="detail-action" data-id="{{detail.id}}" onTap="advanceOrder">填写物流并确认发货</button>
       <button a:elif="{{!detailLoading && detail.apiStatus === 'shipped'}}" class="detail-action action-light" onTap="closeDetail">{{detail.shipment ? detail.shipment.logisticsCompany + ' · ' + detail.shipment.trackingNo : '订单已发货'}}</button>
     </view>

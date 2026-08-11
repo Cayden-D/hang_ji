@@ -113,10 +113,10 @@ const orders = {
   },
   detail: (id) => request({ path: '/api/orders/' + encodeURIComponent(id) }),
   create: (data) => request({ path: '/api/orders', method: 'POST', data }),
-  completePurchase: (id, productIds) => request({
+  completePurchase: (id, productIds, products) => request({
     path: '/api/orders/' + encodeURIComponent(id) + '/purchase-complete',
     method: 'POST',
-    data: productIds && productIds.length ? { productIds } : {}
+    data: products && products.length ? { products } : (productIds && productIds.length ? { productIds } : {})
   }),
   createShipment: (id, data) => request({
     path: '/api/orders/' + encodeURIComponent(id) + '/shipments',

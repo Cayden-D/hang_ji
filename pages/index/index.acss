@@ -246,6 +246,9 @@
 .detail-spec-grid view { background: #EEF3F4; border-radius: 6rpx; padding: 7rpx; }
 .detail-spec-grid view text { display: block; color: #7B8D93; font-size: 14rpx; font-weight: 400; }
 .detail-spec-grid view text + text { color: #334F58; font-size: 15rpx; font-weight: 700; margin-top: 3rpx; white-space: nowrap; }
+.purchase-cost-editor { margin-top: 14rpx; padding: 14rpx; border: 1rpx solid #BFD4D9; border-radius: 9rpx; background: #F2F8F9; }
+.purchase-cost-editor > text { display: block; color: #567078; font-size: 16rpx; font-weight: 700; }
+.purchase-cost-editor input { height: 48rpx; margin-top: 7rpx; padding: 0 12rpx; border-bottom: 2rpx solid #76A7B3; color: #155D75; font-family: monospace; font-size: 23rpx; font-weight: 800; }
 .product-purchase-row { align-items: center; display: flex; justify-content: space-between; margin-top: 14rpx; }
 .product-purchase-status { background: #FFF1E8; border-radius: 999rpx; color: #E56A1F; font-size: 18rpx !important; padding: 5rpx 14rpx; }
 .product-purchase-status.is-completed { background: #EAF8F0; color: #16865C; }

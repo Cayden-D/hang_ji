@@ -54,7 +54,13 @@ export const listOrdersSchema = z.object({
 });
 
 export const purchaseSchema = z.object({
-  productIds: z.array(z.string().uuid()).min(1).max(100).optional()
+  productIds: z.array(z.string().uuid()).min(1).max(100).optional(),
+  products: z.array(z.object({
+    id: z.string().uuid(),
+    purchaseCost: money
+  })).min(1).max(100).optional()
+}).refine((value) => !value.productIds || !value.products, {
+  message: 'Use either productIds or products, not both'
 });
 
 export const shipmentSchema = z.object({

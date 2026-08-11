@@ -686,19 +686,32 @@ Page({
 
   async advanceOrder(e) {
     const id = e.currentTarget.dataset.id;
-    const order = this.data.orders.find((item) => item.id === id) || this.data.detail;
+    const order = this.data.showDetail && this.data.detail.id === id
+      ? this.data.detail
+      : (this.data.orders.find((item) => item.id === id) || this.data.detail);
     if (!order) return;
     if (order.apiStatus === 'purchased') {
       this.openShipment(order);
       return;
     }
     if (!['pending_purchase', 'purchasing'].includes(order.apiStatus)) return;
+    if (!this.data.showDetail) {
+      this.openDetail(e);
+      this.showToast('请填写各产品实际采购成本');
+      return;
+    }
+    const pendingProducts = (order.products || []).filter((item) => item.purchaseStatus !== 'completed');
+    if (pendingProducts.some((item) => item.purchaseCost === '' || item.purchaseCost === null || item.purchaseCost === undefined)) {
+      this.showToast('请填写全部待采购产品的实际采购成本');
+      return;
+    }
+    const updates = pendingProducts.map((item) => ({ id: item.id, purchaseCost: Number(item.purchaseCost) }));
     this.setData({ submitting: true });
     try {
-      const result = await api.orders.completePurchase(id);
+      const result = await api.orders.completePurchase(id, null, updates);
       this.replaceOrder(mapOrder(result.order));
       this.setData({ submitting: false, showDetail: false });
-      this.showToast('采购完成，订单已同步至物流');
+      this.showToast('采购成本已保存，订单已同步至物流');
     } catch (error) {
       console.error('采购确认失败', error);
       this.setData({ submitting: false });
@@ -706,17 +719,30 @@ Page({
     }
   },
 
+  updatePurchaseCost(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    this.setData({ ['detail.products[' + index + '].purchaseCost']: e.detail.value });
+  },
+
   async completeProductPurchase(e) {
     const orderId = e.currentTarget.dataset.orderId;
     const productId = e.currentTarget.dataset.productId;
-    if (!orderId || !productId || this.data.submitting) return;
+    const product = (this.data.detail.products || []).find((item) => item.id === productId);
+    if (!orderId || !productId || !product || this.data.submitting) return;
+    if (product.purchaseCost === '' || product.purchaseCost === null || product.purchaseCost === undefined) {
+      this.showToast('请填写该产品的实际采购成本');
+      return;
+    }
     this.setData({ submitting: true });
     try {
-      const result = await api.orders.completePurchase(orderId, [productId]);
+      const result = await api.orders.completePurchase(orderId, null, [{
+        id: productId,
+        purchaseCost: Number(product.purchaseCost)
+      }]);
       const order = mapOrder(result.order);
       this.replaceOrder(order);
       this.setData({ detail: order, submitting: false });
-      this.showToast('该产品已确认采购');
+      this.showToast('采购成本已保存，该产品已确认采购');
     } catch (error) {
       console.error('单品采购确认失败', error);
       this.setData({ submitting: false });
@@ -816,7 +842,13 @@ Page({
         roleText: roleNames[item.role] || item.role,
         initial: (item.name || '钉').slice(0, 1),
         isActive: Boolean(item.is_active),
-        commissionRatePercent: Number(item.commissionRatePercent ?? item.commission_rate_percent ?? 0)
+        commissionRatePercent: Number(
+          item.commissionRatePercent !== undefined && item.commissionRatePercent !== null
+            ? item.commissionRatePercent
+            : (item.commission_rate_percent !== undefined && item.commission_rate_percent !== null
+              ? item.commission_rate_percent
+              : 0)
+        )
       }));
       this.setData({ adminUsers: users, userAdminLoading: false });
     } catch (error) {

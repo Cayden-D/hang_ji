@@ -143,7 +143,7 @@
           <view class="task-title">{{item.product}}</view>
           <view class="task-sub">{{item.customer}}{{item.sku ? ' · ' + item.sku : ''}}</view>
           <view class="task-data"><view><text>数量</text><text>{{item.quantity}} 件</text></view><view><text>{{item.status === 'ready' ? '目的港' : '采购预算'}}</text><text>{{item.status === 'ready' ? item.country : item.currency + ' ' + item.amount}}</text></view></view>
-          <button class="task-button {{item.status === 'ready' ? 'button-dark' : ''}}" data-id="{{item.id}}" catchTap="advanceOrder">{{item.status === 'ready' ? '确认打包并发货' : '全部采购完成'}}</button>
+          <button class="task-button {{item.status === 'ready' ? 'button-dark' : ''}}" data-id="{{item.id}}" catchTap="advanceOrder">{{item.status === 'ready' ? '确认打包并发货' : '填写成本并确认采购'}}</button>
         </view>
       </block>
       <view class="empty" a:if="{{!loading && taskOrders.length === 0}}"><text>当前没有待办</text><text>新的流转任务会自动出现在这里</text></view>
@@ -280,6 +280,9 @@
               <view><text>单价</text><text>USD {{product.unitPrice}}</text></view>
               <view><text>采购成本</text><text>USD {{product.purchaseCost}}</text></view>
             </view>
+            <view class="purchase-cost-editor" a:if="{{product.purchaseStatus !== 'completed' && (currentUser.role === 'purchase' || currentUser.role === 'admin')}}">
+              <text>实际采购成本（USD）</text><input type="digit" value="{{product.purchaseCost}}" data-index="{{productIndex}}" onInput="updatePurchaseCost" placeholder="请输入实际成本" />
+            </view>
             <view class="product-purchase-row">
               <text class="product-purchase-status {{product.purchaseStatus === 'completed' ? 'is-completed' : ''}}">{{product.purchaseStatus === 'completed' ? '已采购' : '待采购'}}</text>
               <text a:if="{{product.purchaseStatus !== 'completed' && (currentUser.role === 'purchase' || currentUser.role === 'admin')}}" class="product-purchase-action" data-order-id="{{detail.id}}" data-product-id="{{product.id}}" catchTap="completeProductPurchase">确认此款采购</text>
@@ -289,7 +292,7 @@
       </scroll-view>
       <view class="detail-note"><text>当前动态</text><text>{{detail.note}}</text></view>
       <view class="detail-grid"><view><text>目的地</text><text>{{detail.country}}</text></view><view><text>最晚出货</text><text>{{detail.deadline}}</text></view><view><text>负责人</text><text>{{detail.owner}}</text></view><view><text>完成度</text><text>{{detail.progress}}%</text></view></view>
-      <button a:if="{{!detailLoading && (currentUser.role === 'purchase' || currentUser.role === 'admin') && (detail.apiStatus === 'pending_purchase' || detail.apiStatus === 'purchasing')}}" disabled="{{submitting}}" class="detail-action" data-id="{{detail.id}}" onTap="advanceOrder">{{submitting ? '正在提交…' : '标记全部采购完成'}}</button>
+      <button a:if="{{!detailLoading && (currentUser.role === 'purchase' || currentUser.role === 'admin') && (detail.apiStatus === 'pending_purchase' || detail.apiStatus === 'purchasing')}}" disabled="{{submitting}}" class="detail-action" data-id="{{detail.id}}" onTap="advanceOrder">{{submitting ? '正在提交…' : '保存全部采购成本并完成'}}</button>
       <button a:elif="{{!detailLoading && (currentUser.role === 'logistics' || currentUser.role === 'admin') && detail.apiStatus === 'purchased'}}" class="detail-action" data-id="{{detail.id}}" onTap="advanceOrder">填写物流并确认发货</button>
       <button a:elif="{{!detailLoading && detail.apiStatus === 'shipped'}}" class="detail-action action-light" onTap="closeDetail">{{detail.shipment ? detail.shipment.logisticsCompany + ' · ' + detail.shipment.trackingNo : '订单已发货'}}</button>
     </view>

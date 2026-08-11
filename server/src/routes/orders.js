@@ -243,7 +243,7 @@ router.delete('/:id', requireRoles('admin'), async (req, res) => {
 });
 
 router.post('/:id/purchase-complete', requireRoles('purchase', 'admin'), validate(purchaseSchema), async (req, res) => {
-  const { productIds } = req.body;
+  const { productIds, products: purchaseUpdates } = req.body;
   let transition;
   await withTransaction(async (connection) => {
     const [orders] = await connection.execute('SELECT * FROM orders WHERE id = ? FOR UPDATE', [req.params.id]);
@@ -251,26 +251,46 @@ router.post('/:id/purchase-complete', requireRoles('purchase', 'admin'), validat
     if (!order) throw notFound('Order not found');
     if (!['pending_purchase', 'purchasing'].includes(order.status)) throw conflict('Order is not in a purchasable state');
     const [allProducts] = await connection.execute('SELECT id, purchase_status FROM products WHERE order_id = ? FOR UPDATE', [order.id]);
-    const targets = productIds
-      ? allProducts.filter((item) => productIds.includes(item.id) && item.purchase_status === 'pending')
+    const requestedIds = purchaseUpdates ? purchaseUpdates.map((item) => item.id) : productIds;
+    const targets = requestedIds
+      ? allProducts.filter((item) => requestedIds.includes(item.id) && item.purchase_status === 'pending')
       : allProducts.filter((item) => item.purchase_status === 'pending');
     if (!targets.length) throw conflict('No pending products matched this request');
-    const placeholders = targets.map(() => '?').join(',');
-    await connection.execute(
-      `UPDATE products SET purchase_status = 'completed', purchased_by = ?, purchased_at = NOW(3)
-       WHERE order_id = ? AND id IN (${placeholders})`,
-      [req.user.sub, order.id, ...targets.map((item) => item.id)]
-    );
+    if (requestedIds && targets.length !== new Set(requestedIds).size) {
+      throw conflict('Some products are not pending or do not belong to this order');
+    }
+    const costs = new Map((purchaseUpdates || []).map((item) => [item.id, item.purchaseCost]));
+    for (const target of targets) {
+      if (costs.has(target.id)) {
+        await connection.execute(
+          `UPDATE products SET purchase_cost = ?, purchase_status = 'completed', purchased_by = ?, purchased_at = NOW(3)
+           WHERE order_id = ? AND id = ?`,
+          [costs.get(target.id), req.user.sub, order.id, target.id]
+        );
+      } else {
+        await connection.execute(
+          `UPDATE products SET purchase_status = 'completed', purchased_by = ?, purchased_at = NOW(3)
+           WHERE order_id = ? AND id = ?`,
+          [req.user.sub, order.id, target.id]
+        );
+      }
+    }
     const [counts] = await connection.execute(
-      "SELECT COUNT(*) AS total, SUM(purchase_status = 'completed') AS completed FROM products WHERE order_id = ?",
+      "SELECT COUNT(*) AS total, SUM(purchase_status = 'completed') AS completed, SUM(purchase_cost) AS purchase_total FROM products WHERE order_id = ?",
       [order.id]
     );
     const nextStatus = derivePurchaseStatus(Number(counts[0].completed), Number(counts[0].total));
-    await connection.execute('UPDATE orders SET status = ?, version = version + 1 WHERE id = ?', [nextStatus, order.id]);
+    await connection.execute(
+      'UPDATE orders SET status = ?, purchase_total = ?, version = version + 1 WHERE id = ?',
+      [nextStatus, Number(counts[0].purchase_total || 0), order.id]
+    );
     await connection.execute(
       `INSERT INTO order_status_history (order_id, from_status, to_status, action, actor_user_id, detail)
        VALUES (?, ?, ?, 'purchase_completed', ?, ?)`,
-      [order.id, order.status, nextStatus, req.user.sub, JSON.stringify({ productIds: targets.map((item) => item.id) })]
+      [order.id, order.status, nextStatus, req.user.sub, JSON.stringify({
+        productIds: targets.map((item) => item.id),
+        purchaseCosts: purchaseUpdates || null
+      })]
     );
     transition = { from: order.status, to: nextStatus, ownerUserId: order.owner_user_id, orderNo: order.order_no };
   });

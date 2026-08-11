@@ -291,6 +291,10 @@ tbody tr:hover { background: #f8fbfb; }
 .detail-product aside { text-align: right; }
 .detail-product aside strong { display: block; font: 700 12px "Arial Narrow", sans-serif; }
 .detail-product aside button { margin-top: 11px; padding: 5px 8px; border: 0; background: var(--orange-soft); color: #b54f25; font-size: 9px; font-weight: 700; }
+.purchase-cost-field { display: block; width: 142px; margin-top: 9px; text-align: left; }
+.purchase-cost-field span { display: block; color: var(--muted); font-size: 8px; }
+.purchase-cost-field input { width: 100%; height: 30px; margin-top: 4px; padding: 0 8px; box-sizing: border-box; border: 1px solid #b9cdd2; background: #f5f9f9; color: var(--sea); font-family: var(--mono); font-size: 11px; font-weight: 800; text-align: right; }
+.purchase-cost-saved { display: block; margin-top: 8px; color: var(--sea); font-family: var(--mono); font-size: 9px; }
 .detail-note { padding: 15px; border-left: 3px solid var(--sea); background: var(--sea-soft); color: var(--ink-2); font-size: 12px; line-height: 1.7; }
 .attachment-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .attachment-list a { padding: 7px 10px; border: 1px solid var(--line); color: var(--sea); font-size: 10px; text-decoration: none; }

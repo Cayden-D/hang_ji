@@ -559,8 +559,8 @@ function renderDetail() {
     <div class="detail-product-image">${product.images?.[0]?.url ? `<img src="${escapeHtml(product.images[0].url)}" alt="" />` : escapeHtml(product.sku?.slice(0, 5) || '产品')}</div>
     <div><h5>${escapeHtml(product.name)} / ${escapeHtml(product.variant)}</h5><p>${product.sku ? `${escapeHtml(product.sku)} · ` : ''}${product.quantity} 件 · ${product.cartons} 箱<br />${product.weight} kg · ${product.volume} m³ · 装箱 ${product.unitsPerCarton} 件</p></div>
     <aside><strong>USD ${money(product.totalPrice)}</strong>${product.purchaseStatus === 'completed'
-      ? '<span class="status-pill purchased">已采购</span>'
-      : canPurchase() ? `<button data-purchase-product="${product.id}">确认此款采购</button>` : '<span class="status-pill">待采购</span>'}</aside>
+      ? `<span class="status-pill purchased">已采购</span><small class="purchase-cost-saved">成本 USD ${money(product.purchaseCost)}</small>`
+      : canPurchase() ? `<label class="purchase-cost-field"><span>实际采购成本 USD</span><input data-purchase-cost="${product.id}" type="number" min="0" step="0.01" value="${Number(product.purchaseCost || 0)}" /></label><button data-purchase-product="${product.id}">保存成本并确认</button>` : '<span class="status-pill">待采购</span>'}</aside>
   </article>`).join('');
   const attachments = [...(order.paymentAttachments || []), ...(order.shipment?.attachments || [])];
   $('#detail-content').innerHTML = `
@@ -590,15 +590,27 @@ const canShip = () => ['logistics', 'admin'].includes(state.user?.role);
 
 async function completePurchase(productIds) {
   if (!state.currentDetail || state.busy) return;
+  const pending = (state.currentDetail.products || []).filter((item) =>
+    item.purchaseStatus !== 'completed' && (!productIds || productIds.includes(item.id))
+  );
+  const products = pending.map((item) => {
+    const input = document.querySelector(`[data-purchase-cost="${item.id}"]`);
+    return { id: item.id, purchaseCost: input ? input.value : '' };
+  });
+  if (!products.length) return toast('没有可确认的待采购产品');
+  if (products.some((item) => item.purchaseCost === '' || Number(item.purchaseCost) < 0)) {
+    return toast('请填写待采购产品的实际采购成本');
+  }
   setBusy(true);
   try {
     const result = await api(`/api/orders/${state.currentDetail.id}/purchase-complete`, {
-      method: 'POST', body: JSON.stringify(productIds ? { productIds } : {})
+      method: 'POST',
+      body: JSON.stringify({ products: products.map((item) => ({ id: item.id, purchaseCost: Number(item.purchaseCost) })) })
     });
     state.currentDetail = result.order;
     replaceOrder(result.order);
     renderDetail();
-    toast(productIds ? '该产品已确认采购' : '全部产品已确认采购');
+    toast(productIds ? '采购成本已保存，该产品已确认采购' : '全部采购成本已保存');
   } catch (error) {
     toast(`采购确认失败：${error.message}`);
   } finally { setBusy(false); }

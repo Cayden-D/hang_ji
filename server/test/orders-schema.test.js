@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adminReplaceOrderSchema, adminUpdateShipmentSchema, createOrderSchema, listOrdersSchema, shipmentSchema } from '../src/schemas/orders.js';
+import { adminReplaceOrderSchema, adminUpdateShipmentSchema, createOrderSchema, listOrdersSchema, purchaseSchema, shipmentSchema } from '../src/schemas/orders.js';
 
 const validOrder = {
   customerName: 'NORDHAUS GmbH',
@@ -42,6 +42,19 @@ test('order list accepts a valid creation date range', () => {
 
 test('order list rejects a reversed creation date range', () => {
   assert.equal(listOrdersSchema.safeParse({ dateFrom: '2026-08-31', dateTo: '2026-08-01' }).success, false);
+});
+
+test('purchase completion accepts actual cost for each product', () => {
+  const parsed = purchaseSchema.parse({
+    products: [{ id: '3a9d7165-6089-4692-a1ab-a62139981600', purchaseCost: 1288.5 }]
+  });
+  assert.equal(parsed.products[0].purchaseCost, 1288.5);
+});
+
+test('purchase completion rejects negative actual cost', () => {
+  assert.equal(purchaseSchema.safeParse({
+    products: [{ id: '3a9d7165-6089-4692-a1ab-a62139981600', purchaseCost: -1 }]
+  }).success, false);
 });
 
 test('shipment rejects arrival before shipment', () => {

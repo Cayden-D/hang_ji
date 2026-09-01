@@ -10,7 +10,7 @@
     "web:build": "vite build --config web/vite.config.js",
     "migrate": "node scripts/migrate.js",
     "test": "node --test",
-    "check": "node --check src/server.js && node --check src/routes/auth.js && node --check src/routes/users.js && node --check src/routes/orders.js && node --check src/routes/uploads.js && node --check src/routes/imports.js && node --check src/routes/exchange-rates.js && node --check src/routes/performance.js && node --check src/domain/commission.js && node --check src/services/dingtalk.js && node --check src/services/oss.js && node --check src/services/pi-import.js && node --check src/services/exchange-rates.js && node --check web/src/main.js && node --check ../pages/index/index.js && node --check ../utils/api.js"
+    "check": "node --check src/server.js && node --check src/routes/auth.js && node --check src/routes/users.js && node --check src/routes/orders.js && node --check src/routes/expenses.js && node --check src/routes/uploads.js && node --check src/routes/imports.js && node --check src/routes/exchange-rates.js && node --check src/routes/performance.js && node --check src/domain/commission.js && node --check src/services/dingtalk.js && node --check src/services/oss.js && node --check src/services/pi-import.js && node --check src/services/exchange-rates.js && node --check web/src/main.js && node --check ../pages/index/index.js && node --check ../utils/api.js"
   },
   "engines": {
     "node": ">=20"

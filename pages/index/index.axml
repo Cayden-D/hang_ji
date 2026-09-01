@@ -197,8 +197,9 @@
         <view class="menu-item"><text>⌖</text><view>办公地点<text>{{currentUser.workPlace || '未填写'}}</text></view></view>
         <view class="menu-item"><text>＃</text><view>钉钉 UserId<text>{{currentUser.dingUserId || '获取中'}}</text></view></view>
       </view>
-      <view class="profile-tip">岗位、角色来自企业通讯录；航迹权限由本应用管理员配置</view>
-      <view class="admin-entry" a:if="{{currentUser.role === 'admin'}}" onTap="openUserAdmin"><view><text>成员与权限</text><text>管理业务、采购、物流角色和账号状态</text></view><text>›</text></view>
+      <view class="profile-tip">岗位、角色来自企业通讯录；航迹权限由超级管理员配置</view>
+      <view class="admin-entry expense-entry" onTap="openExpenses"><view><text>{{currentUser.isDingAdmin ? '费用报销审批' : '费用报销'}}</text><text>{{currentUser.isDingAdmin ? '查阅并审批全员报销申请' : '提交申请并查看我的审批进度'}}</text></view><text>›</text></view>
+      <view class="admin-entry" a:if="{{currentUser.isDingAdmin}}" onTap="openUserAdmin"><view><text>成员与权限</text><text>管理业务、采购、物流、外贸经理角色和账号状态</text></view><text>›</text></view>
       <view class="version">航迹协作 V1.0</view>
     </view>
     <view class="scroll-spacer"></view>
@@ -297,7 +298,7 @@
         </view>
         <view class="order-purchase-total-input">
           <text>USD</text>
-          <input type="digit" value="{{purchaseTotalDraft}}" onInput="updatePurchaseTotal" placeholder="0.00" />
+          <input type="digit" value="{{purchaseTotalDraft}}" onInput="updatePurchaseTotal" placeholder="0.00" style="background-color: transparent; color: #FFFFFF;" placeholder-style="color: rgba(255,255,255,.38);" />
         </view>
       </view>
       <view class="detail-note"><text>当前动态</text><text>{{detail.note}}</text></view>
@@ -343,6 +344,48 @@
         </view>
         <view class="form-space"></view>
       </scroll-view>
+    </view>
+  </view>
+
+  <view class="modal-mask" a:if="{{showExpenses}}" onTap="closeExpenses">
+    <view class="sheet expense-sheet" catchTap="stopBubble">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title"><view><text>{{currentUser.isDingAdmin ? '费用报销审批' : '我的费用报销'}}</text><text>{{currentUser.isDingAdmin ? '待审批申请优先显示' : '提交后由钉钉超级管理员审批'}}</text></view><text class="sheet-close" onTap="closeExpenses">×</text></view>
+      <view class="expense-toolbar"><button onTap="openExpenseCreate">＋ 提交报销申请</button><text>{{expenses.length}} 条记录</text></view>
+      <view class="empty" a:if="{{expensesLoading}}"><text>正在读取报销记录</text><text>请稍候</text></view>
+      <scroll-view a:else scroll-y class="expense-list">
+        <view class="expense-card" a:for="{{expenses}}" a:key="id">
+          <view class="expense-head"><view class="expense-avatar">{{item.applicantInitial}}</view><view><text>{{currentUser.isDingAdmin ? item.applicantName : item.categoryText}}</text><text>{{item.expenseNo}} · {{item.incurredOn}}</text></view><text class="expense-status status-{{item.status}}">{{item.statusText}}</text></view>
+          <view class="expense-amount"><text>{{item.currency}}</text> {{item.amountText}}</view>
+          <view class="expense-meta" a:if="{{currentUser.isDingAdmin}}">{{item.categoryText}} · 提交于 {{item.createdDate}}</view>
+          <view class="expense-description">{{item.description}}</view>
+          <scroll-view scroll-x class="expense-receipts" a:if="{{item.attachments.length}}"><image a:for="{{item.attachments}}" a:for-item="attachment" a:key="id" src="{{attachment.url}}" mode="aspectFill" /></scroll-view>
+          <view class="expense-review-result" a:if="{{item.status !== 'pending'}}"><text>审批人：{{item.reviewerName || '超级管理员'}}</text><text a:if="{{item.reviewComment}}">审批意见：{{item.reviewComment}}</text></view>
+          <view class="expense-approval" a:if="{{currentUser.isDingAdmin && item.status === 'pending'}}">
+            <input value="{{expenseDecisionComment}}" onInput="updateExpenseDecisionComment" placeholder="审批意见（驳回时必填）" />
+            <view><button data-id="{{item.id}}" data-status="rejected" onTap="decideExpense">驳回</button><button data-id="{{item.id}}" data-status="approved" onTap="decideExpense">通过</button></view>
+          </view>
+        </view>
+        <view class="empty" a:if="{{expenses.length === 0}}"><text>暂无报销记录</text><text>点击上方按钮提交第一笔申请</text></view>
+        <view class="form-space"></view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <view class="modal-mask expense-create-mask" a:if="{{showExpenseCreate}}" onTap="closeExpenseCreate">
+    <view class="sheet expense-create-sheet" catchTap="stopBubble">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title"><view><text>提交报销申请</text><text>请准确填写费用信息并上传凭证</text></view><text class="sheet-close" onTap="closeExpenseCreate">×</text></view>
+      <scroll-view scroll-y class="expense-form">
+        <view class="field-row"><view class="field half"><text>费用类型 *</text><view class="select-field" onTap="chooseExpenseCategory">{{expenseForm.categoryText}} <text>⌄</text></view></view><view class="field half"><text>币种 *</text><view class="select-field" onTap="chooseExpenseCurrency">{{expenseForm.currency}} <text>⌄</text></view></view></view>
+        <view class="field"><text>报销金额 *</text><input type="digit" data-field="amount" value="{{expenseForm.amount}}" onInput="updateExpenseForm" placeholder="请输入金额" /></view>
+        <view class="field"><text>费用发生日期 *</text><picker mode="date" value="{{expenseForm.incurredOn}}" onChange="setExpenseDate"><view class="select-field">{{expenseForm.incurredOn}} <text>⌄</text></view></picker></view>
+        <view class="field"><text>费用说明 *</text><textarea data-field="description" value="{{expenseForm.description}}" onInput="updateExpenseForm" maxlength="1000" placeholder="说明费用用途、关联客户或项目" /></view>
+        <view class="shipment-upload" onTap="uploadExpenseAttachments"><text>＋ 上传发票 / 付款凭证</text><text>{{expenseForm.attachments.length}} / 9</text></view>
+        <view class="expense-upload-grid" a:if="{{expenseForm.attachments.length}}"><view a:for="{{expenseForm.attachments}}" a:for-item="attachment" a:for-index="index" a:key="objectKey"><image src="{{attachment.url}}" mode="aspectFill" /><text data-index="{{index}}" onTap="removeExpenseAttachment">×</text></view></view>
+        <view class="form-space"></view>
+      </scroll-view>
+      <view class="sheet-submit"><button disabled="{{submitting || uploading}}" onTap="submitExpense">{{uploading ? '凭证上传中…' : (submitting ? '正在提交…' : '提交给超级管理员')}}</button></view>
     </view>
   </view>
 

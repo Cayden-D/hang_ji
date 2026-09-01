@@ -255,7 +255,7 @@
 .order-purchase-total-copy text:first-child { margin-bottom: 4rpx; color: #FFFFFF; font-size: 25rpx; font-weight: 800; }
 .order-purchase-total-input { display: flex; align-items: center; width: 230rpx; height: 66rpx; padding: 0 14rpx; box-sizing: border-box; border: 1rpx solid rgba(255,255,255,.22); border-radius: 7rpx; background: rgba(255,255,255,.1); }
 .order-purchase-total-input text { color: #FFB38B; font-family: monospace; font-size: 19rpx; font-weight: 800; }
-.order-purchase-total-input input { flex: 1; min-width: 0; height: 66rpx; color: #FFFFFF; font-family: monospace; font-size: 28rpx; font-weight: 800; text-align: right; }
+.order-purchase-total-input input { flex: 1; min-width: 0; height: 66rpx; border: 0; background: transparent; background-color: transparent; color: #FFFFFF; font-family: monospace; font-size: 28rpx; font-weight: 800; text-align: right; }
 .product-purchase-row { align-items: center; display: flex; justify-content: space-between; margin-top: 14rpx; }
 .product-purchase-status { background: #FFF1E8; border-radius: 999rpx; color: #E56A1F; font-size: 18rpx !important; padding: 5rpx 14rpx; }
 .product-purchase-status.is-completed { background: #EAF8F0; color: #16865C; }
@@ -293,6 +293,47 @@
 .user-admin-main .user-commission-control input { width: 78rpx; height: 34rpx; padding: 0 8rpx; box-sizing: border-box; border: 1rpx solid #C8D8DC; border-radius: 6rpx; background: #F7FAFA; color: #155D75; font-size: 17rpx; font-weight: 800; text-align: right; }
 .user-active-control { flex: 0 0 auto; padding: 10rpx; background: #F2E7E3; color: #B24926; border-radius: 7rpx; font-size: 16rpx; }
 .user-active-control.is-active { background: #E4F5ED; color: #218660; }
+.expense-entry { background: #FFF1E8; }
+.expense-entry view text, .expense-entry > text { color: #B74B25; }
+.expense-sheet { height: 88vh; }
+.expense-toolbar { height: 78rpx; padding: 0 28rpx; display: flex; align-items: center; justify-content: space-between; border-bottom: 1rpx solid #E6ECEE; }
+.expense-toolbar button { width: auto; height: 54rpx; padding: 0 20rpx; margin: 0; line-height: 54rpx; border-radius: 9rpx; background: #FF6B35; color: #fff; font-size: 19rpx; font-weight: 800; }
+.expense-toolbar text { color: #7A8E94; font-size: 17rpx; }
+.expense-list { position: absolute; left: 0; right: 0; top: 208rpx; bottom: 0; padding: 0 28rpx; box-sizing: border-box; }
+.expense-card { margin-bottom: 16rpx; padding: 22rpx; border: 1rpx solid #DCE6E8; border-radius: 15rpx; background: #fff; box-shadow: 0 8rpx 24rpx rgba(22,57,68,.05); }
+.expense-head { display: flex; align-items: center; gap: 13rpx; }
+.expense-avatar { width: 54rpx; height: 54rpx; flex: 0 0 auto; border-radius: 16rpx 22rpx 16rpx 16rpx; display: flex; align-items: center; justify-content: center; background: #155D75; color: #fff; font-size: 21rpx; font-weight: 800; }
+.expense-head > view:nth-child(2) { min-width: 0; flex: 1; }
+.expense-head > view:nth-child(2) text { display: block; color: #18343D; font-size: 21rpx; font-weight: 800; }
+.expense-head > view:nth-child(2) text + text { margin-top: 4rpx; color: #83949A; font-family: monospace; font-size: 14rpx; font-weight: 400; }
+.expense-status { padding: 6rpx 11rpx; border-radius: 999rpx; font-size: 15rpx; font-weight: 800; }
+.expense-status.status-pending { background: #FFF0E8; color: #C2582D; }
+.expense-status.status-approved { background: #E5F5ED; color: #20835F; }
+.expense-status.status-rejected { background: #F3E7E5; color: #B64432; }
+.expense-amount { margin-top: 18rpx; color: #15313A; font-family: monospace; font-size: 35rpx; font-weight: 800; }
+.expense-amount text { color: #FF6B35; font-size: 16rpx; }
+.expense-meta { margin-top: 6rpx; color: #87969B; font-size: 15rpx; }
+.expense-description { margin-top: 13rpx; padding: 14rpx; border-radius: 9rpx; background: #F4F7F8; color: #3A555E; font-size: 19rpx; line-height: 1.5; }
+.expense-receipts { margin-top: 12rpx; white-space: nowrap; }
+.expense-receipts image { width: 116rpx; height: 92rpx; margin-right: 8rpx; border-radius: 8rpx; background: #E8EEF0; }
+.expense-review-result { margin-top: 13rpx; padding-top: 12rpx; border-top: 1rpx solid #E8EEF0; }
+.expense-review-result text { display: block; color: #657B83; font-size: 16rpx; }
+.expense-review-result text + text { margin-top: 5rpx; }
+.expense-approval { margin-top: 15rpx; padding-top: 14rpx; border-top: 1rpx solid #E3EAEC; }
+.expense-approval input { height: 58rpx; padding: 0 14rpx; box-sizing: border-box; border: 1rpx solid #D1DEE1; border-radius: 8rpx; background: #F8FAFA; font-size: 18rpx; }
+.expense-approval > view { display: flex; gap: 10rpx; margin-top: 10rpx; }
+.expense-approval button { height: 56rpx; line-height: 56rpx; flex: 1; border-radius: 8rpx; background: #F1E6E3; color: #AD432D; font-size: 18rpx; font-weight: 800; }
+.expense-approval button + button { background: #155D75; color: #fff; }
+.expense-create-mask { z-index: 65; }
+.expense-create-sheet { height: 82vh; padding-bottom: 116rpx; }
+.expense-form { position: absolute; left: 0; right: 0; top: 130rpx; bottom: 112rpx; padding: 0 30rpx; box-sizing: border-box; }
+.select-field { height: 70rpx; padding: 0 16rpx; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; border: 1rpx solid #D5E1E4; border-radius: 9rpx; background: #F8FAFA; color: #27464F; font-size: 20rpx; }
+.select-field text { color: #8EA0A5; }
+.expense-form textarea { width: 100%; height: 150rpx; padding: 16rpx; box-sizing: border-box; border: 1rpx solid #D5E1E4; border-radius: 9rpx; background: #F8FAFA; font-size: 20rpx; }
+.expense-upload-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9rpx; margin-top: 12rpx; }
+.expense-upload-grid view { position: relative; height: 112rpx; }
+.expense-upload-grid image { width: 100%; height: 100%; border-radius: 8rpx; background: #E7EDEF; }
+.expense-upload-grid text { position: absolute; right: -5rpx; top: -9rpx; width: 34rpx; height: 34rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #C54D31; color: #fff; font-size: 22rpx; }
 .toast { position: fixed; z-index: 80; left: 50%; bottom: 160rpx; transform: translateX(-50%); background: #102A33; color: #fff; border-radius: 40rpx; padding: 18rpx 28rpx; white-space: nowrap; font-size: 21rpx; box-shadow: 0 12rpx 35rpx rgba(16,42,51,.26); }
 .toast text { color: #8CE0C1; margin-right: 10rpx; }
 

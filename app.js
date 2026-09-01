@@ -4,6 +4,7 @@ const appConfig = require('./config');
 App({
   onLaunch() {
     console.info('航迹协作已启动');
+    this.setupUpdateManager();
     this.loginPromise = new Promise((resolve) => {
       if (typeof dd === 'undefined' || !dd.getAuthCode) {
         this.globalData.loginError = '请在钉钉客户端或开发者工具中运行';
@@ -82,6 +83,27 @@ App({
       dd.getAuthCode(authOptions);
     });
   },
+
+  setupUpdateManager() {
+    if (typeof dd === 'undefined' || !dd.getUpdateManager) return;
+    try {
+      const updateManager = dd.getUpdateManager();
+      updateManager.onCheckForUpdate((result) => {
+        console.info('小程序版本检查完成', result && result.hasUpdate ? '发现新版本' : '当前已是最新版本');
+      });
+      updateManager.onUpdateReady(() => {
+        console.info('新版本已下载，正在自动重启应用');
+        updateManager.applyUpdate();
+      });
+      updateManager.onUpdateFailed(() => {
+        console.warn('新版本下载失败，将在下次进入时重试');
+      });
+      this.updateManager = updateManager;
+    } catch (error) {
+      console.warn('当前钉钉客户端无法启用小程序更新管理', error);
+    }
+  },
+
   globalData: {
     authCode: '',
     sessionToken: '',

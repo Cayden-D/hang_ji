@@ -368,3 +368,24 @@ tbody tr:hover { background: #f8fbfb; }
 }
 
 .table-shell.performance-table-shell { overflow-x: auto; }
+.expense-panel { min-height: 520px; }
+.expense-view-note { margin: -7px 0 22px; color: var(--muted); font-size: 11px; }
+.expense-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.expense-card-pc { padding: 20px; border: 1px solid var(--line); background: #fff; box-shadow: 0 8px 24px rgba(18,51,61,.05); }
+.expense-card-pc header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.expense-card-pc header strong, .expense-card-pc header span { display: block; }
+.expense-card-pc header strong { font-size: 14px; }
+.expense-card-pc header span { margin-top: 4px; color: var(--muted); font: 9px var(--mono); }
+.expense-state { padding: 5px 8px; background: var(--orange-soft); color: #b24b27; font-size: 9px; font-style: normal; font-weight: 800; }
+.expense-state.approved { background: #e5f4ec; color: #247a58; }
+.expense-state.rejected { background: #f2e5e2; color: #a94332; }
+.expense-money { margin-top: 18px; color: var(--ink); font: 800 27px var(--mono); }
+.expense-money small { margin-right: 6px; color: var(--orange); font-size: 10px; }
+.expense-card-pc > p { margin: 5px 0; color: var(--muted); font-size: 10px; }
+.expense-card-pc blockquote { margin: 12px 0 0; padding: 11px 13px; border: 0; border-left: 3px solid var(--sea); background: var(--sea-soft); color: var(--ink-2); font-size: 11px; line-height: 1.6; }
+.expense-receipts-pc { display: flex; gap: 7px; margin-top: 12px; overflow-x: auto; }
+.expense-receipts-pc img { width: 70px; height: 55px; object-fit: cover; }
+.expense-card-pc footer { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+.expense-decision { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.expense-decision input { min-width: 0; padding: 8px 10px; border: 1px solid var(--line); }
+@media (max-width: 900px) { .expense-grid { grid-template-columns: 1fr; } }

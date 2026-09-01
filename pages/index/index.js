@@ -119,6 +119,15 @@ Page({
     showUserAdmin: false,
     userAdminLoading: false,
     adminUsers: [],
+    showExpenses: false,
+    showExpenseCreate: false,
+    expensesLoading: false,
+    expenses: [],
+    expenseForm: {
+      category: 'travel', categoryText: '差旅费', amount: '', currency: 'CNY', incurredOn: todayString(),
+      description: '', attachments: []
+    },
+    expenseDecisionComment: '',
     shipmentOrderId: '',
     toast: '',
     currentUser: {
@@ -150,6 +159,7 @@ Page({
   },
 
   onLoad() {
+    this._hasShown = false;
     this.syncCurrentUser();
     this.loadOrders();
     this.loadExchangeRates();
@@ -158,6 +168,56 @@ Page({
 
   onShow() {
     this.syncCurrentUser();
+    if (this._hasShown) this.refreshRemoteData();
+    this._hasShown = true;
+    this.startAutoRefresh();
+  },
+
+  onHide() {
+    this.stopAutoRefresh();
+  },
+
+  onUnload() {
+    this.stopAutoRefresh();
+  },
+
+  onPullDownRefresh() {
+    this.refreshRemoteData().then(() => {
+      if (typeof dd !== 'undefined' && dd.stopPullDownRefresh) dd.stopPullDownRefresh();
+    });
+  },
+
+  startAutoRefresh() {
+    this.stopAutoRefresh();
+    this._refreshTimer = setInterval(() => {
+      if (!this.data.submitting && !this.data.uploading && !this.data.importingPi) {
+        this.refreshRemoteData();
+      }
+    }, 30000);
+  },
+
+  stopAutoRefresh() {
+    if (!this._refreshTimer) return;
+    clearInterval(this._refreshTimer);
+    this._refreshTimer = null;
+  },
+
+  refreshRemoteData() {
+    if (this._refreshing) return this._refreshing;
+    const tasks = [
+      this.loadOrders({ silent: true }),
+      this.loadExchangeRates(),
+      this.loadLeaderboard()
+    ];
+    if (this.data.orderDateFrom || this.data.orderDateTo) tasks.push(this.loadDateFilteredOrders());
+    if (this.data.currentTab === 'performance') tasks.push(this.loadPerformance());
+    this._refreshing = Promise.all(tasks).then(() => {
+      this._refreshing = null;
+    }, (error) => {
+      console.error('自动刷新数据失败', error);
+      this._refreshing = null;
+    });
+    return this._refreshing;
   },
 
   syncCurrentUser() {
@@ -183,19 +243,22 @@ Page({
     return app.loginPromise.then((result) => Boolean(result && result.token));
   },
 
-  async loadOrders() {
-    this.setData({ loading: true, apiError: '' });
+  async loadOrders(options) {
+    const silent = Boolean(options && options.silent);
+    if (!silent) this.setData({ loading: true, apiError: '' });
     try {
       const loggedIn = await this.waitForLogin();
       if (!loggedIn) throw new Error(getApp().globalData.loginError || '免登尚未完成');
       const result = await api.orders.list();
       const orders = (result.items || []).map(mapOrder);
-      this.setData({ orders, loading: false });
+      this.setData({ orders, loading: false, apiError: '' });
       this.rebuildDerivedData();
     } catch (error) {
       console.error('加载订单失败', error);
-      this.setData({ loading: false, apiError: error.message, orders: [], visibleOrders: [], taskOrders: [] });
-      this.showToast('订单加载失败：' + error.message);
+      if (!silent) {
+        this.setData({ loading: false, apiError: error.message, orders: [], visibleOrders: [], taskOrders: [] });
+        this.showToast('订单加载失败：' + error.message);
+      }
     }
   },
 
@@ -225,7 +288,7 @@ Page({
   },
 
   applyCurrentUser(user) {
-    const roleNames = { sales: '业务员', purchase: '采购员', logistics: '物流人员', admin: '管理员' };
+    const roleNames = { sales: '业务员', purchase: '采购员', logistics: '物流人员', admin: '外贸经理' };
     const roleText = roleNames[user.role] || '企业成员';
     const dingRoles = Array.isArray(user.dingRoles) ? user.dingRoles : [];
     const dingRoleText = dingRoles.length
@@ -233,7 +296,7 @@ Page({
       : '未配置通讯录角色';
     const identities = [];
     if (user.isBoss) identities.push('企业老板');
-    if (user.isDingAdmin) identities.push('企业管理员');
+    if (user.isDingAdmin) identities.push('超级管理员');
     if (user.isSenior) identities.push('企业高管');
     if (user.isLeader) identities.push('部门负责人');
     const identityText = identities.length ? identities.join('、') : '普通成员';
@@ -248,7 +311,7 @@ Page({
         subtitle: subtitle || roleText
       }),
       role: activeRole,
-      roleLabel: user.role === 'admin' ? '管理员视角' : (roleText + '视角')
+      roleLabel: user.role === 'admin' ? '外贸经理视角' : (roleText + '视角')
     }, () => this.refreshTaskOrders(activeRole));
   },
 
@@ -848,11 +911,11 @@ Page({
   },
 
   async openUserAdmin() {
-    if (this.data.currentUser.role !== 'admin') return;
+    if (!this.data.currentUser.isDingAdmin) return;
     this.setData({ showUserAdmin: true, userAdminLoading: true });
     try {
       const result = await api.adminUsers.list();
-      const roleNames = { sales: '业务员', purchase: '采购员', logistics: '物流人员', admin: '管理员' };
+      const roleNames = { sales: '业务员', purchase: '采购员', logistics: '物流人员', admin: '外贸经理' };
       const users = (result.items || []).map((item) => Object.assign({}, item, {
         roleText: roleNames[item.role] || item.role,
         initial: (item.name || '钉').slice(0, 1),
@@ -879,7 +942,7 @@ Page({
   async cycleUserRole(e) {
     const id = e.currentTarget.dataset.id;
     if (id === this.data.currentUser.id) {
-      this.showToast('不能修改自己的管理员角色');
+      this.showToast('不能修改自己的外贸经理角色');
       return;
     }
     const user = this.data.adminUsers.find((item) => item.id === id);
@@ -931,6 +994,124 @@ Page({
     } catch (error) {
       this.showToast('提成比例更新失败：' + error.message);
       await this.openUserAdmin();
+    }
+  },
+
+  async openExpenses() {
+    this.setData({ showExpenses: true, expensesLoading: true, showExpenseCreate: false });
+    try {
+      const result = await api.expenses.list();
+      const categoryNames = { travel: '差旅费', transport: '交通费', meals: '餐饮费', office: '办公费', freight: '物流费', client: '客户招待', other: '其他' };
+      const statusNames = { pending: '待审批', approved: '已通过', rejected: '已驳回' };
+      const expenses = (result.items || []).map((item) => Object.assign({}, item, {
+        categoryText: categoryNames[item.category] || item.category,
+        statusText: statusNames[item.status] || item.status,
+        amountText: Number(item.amount || 0).toFixed(2),
+        createdDate: dateOnly(item.createdAt),
+        applicantInitial: (item.applicantName || '报').slice(0, 1)
+      }));
+      this.setData({ expenses, expensesLoading: false });
+    } catch (error) {
+      this.setData({ expensesLoading: false, showExpenses: false });
+      this.showToast('报销记录加载失败：' + error.message);
+    }
+  },
+
+  closeExpenses() {
+    if (!this.data.submitting && !this.data.uploading) this.setData({ showExpenses: false, showExpenseCreate: false });
+  },
+
+  openExpenseCreate() {
+    this.setData({
+      showExpenseCreate: true,
+      expenseForm: { category: 'travel', categoryText: '差旅费', amount: '', currency: 'CNY', incurredOn: todayString(), description: '', attachments: [] }
+    });
+  },
+
+  closeExpenseCreate() {
+    if (!this.data.submitting && !this.data.uploading) this.setData({ showExpenseCreate: false });
+  },
+
+  updateExpenseForm(e) {
+    this.setData({ ['expenseForm.' + e.currentTarget.dataset.field]: e.detail.value });
+  },
+
+  setExpenseDate(e) {
+    this.setData({ 'expenseForm.incurredOn': e.detail.value });
+  },
+
+  chooseExpenseCategory() {
+    const values = [
+      ['travel', '差旅费'], ['transport', '交通费'], ['meals', '餐饮费'], ['office', '办公费'],
+      ['freight', '物流费'], ['client', '客户招待'], ['other', '其他']
+    ];
+    const index = values.findIndex((item) => item[0] === this.data.expenseForm.category);
+    const next = values[(index + 1) % values.length];
+    this.setData({ 'expenseForm.category': next[0], 'expenseForm.categoryText': next[1] });
+  },
+
+  chooseExpenseCurrency() {
+    const values = ['CNY', 'USD', 'EUR'];
+    const next = values[(values.indexOf(this.data.expenseForm.currency) + 1) % values.length];
+    this.setData({ 'expenseForm.currency': next });
+  },
+
+  uploadExpenseAttachments() {
+    const current = this.data.expenseForm.attachments || [];
+    this.chooseAndUploadImages({
+      remaining: 9 - current.length,
+      category: 'expense',
+      onComplete: (attachments) => this.setData({ 'expenseForm.attachments': current.concat(attachments).slice(0, 9) })
+    });
+  },
+
+  removeExpenseAttachment(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    this.setData({ 'expenseForm.attachments': this.data.expenseForm.attachments.filter((_item, idx) => idx !== index) });
+  },
+
+  async submitExpense() {
+    const form = this.data.expenseForm;
+    const amount = Number(form.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(form.incurredOn) || !String(form.description || '').trim()) {
+      this.showToast('请完整填写金额、发生日期和费用说明');
+      return;
+    }
+    if (this.data.uploading) return this.showToast('请等待凭证上传完成');
+    this.setData({ submitting: true });
+    try {
+      await api.expenses.create({
+        category: form.category, amount, currency: form.currency, incurredOn: form.incurredOn,
+        description: String(form.description).trim(), attachments: form.attachments
+      });
+      this.setData({ submitting: false, showExpenseCreate: false });
+      await this.openExpenses();
+      this.showToast('报销申请已提交给超级管理员');
+    } catch (error) {
+      this.setData({ submitting: false });
+      this.showToast('报销申请提交失败：' + error.message);
+    }
+  },
+
+  updateExpenseDecisionComment(e) {
+    this.setData({ expenseDecisionComment: e.detail.value });
+  },
+
+  async decideExpense(e) {
+    if (!this.data.currentUser.isDingAdmin || this.data.submitting) return;
+    const id = e.currentTarget.dataset.id;
+    const status = e.currentTarget.dataset.status;
+    const comment = String(this.data.expenseDecisionComment || '').trim();
+    if (status === 'rejected' && !comment) return this.showToast('驳回时请填写审批意见');
+    this.setData({ submitting: true });
+    try {
+      await api.expenses.decide(id, status, comment);
+      this.setData({ submitting: false, expenseDecisionComment: '' });
+      await this.openExpenses();
+      this.showToast(status === 'approved' ? '报销已通过' : '报销已驳回');
+    } catch (error) {
+      this.setData({ submitting: false });
+      this.showToast('审批失败：' + error.message);
     }
   },
 

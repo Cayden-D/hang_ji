@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="航迹协作 PC 工作台" />
     <title>航迹协作 · PC 工作台</title>
-    <script type="module" crossorigin src="/pc/assets/index-CGPN4VGV.js"></script>
-    <link rel="stylesheet" crossorigin href="/pc/assets/index-BS0b4S6J.css">
+    <script type="module" crossorigin src="/pc/assets/index-DC3ilM-R.js"></script>
+    <link rel="stylesheet" crossorigin href="/pc/assets/index-wRe9Hwny.css">
   </head>
   <body>
     <div id="auth-screen" class="auth-screen">
@@ -31,7 +31,8 @@
           <button class="nav-item" data-view="orders"><span>≡</span>订单中心</button>
           <button class="nav-item sales-only" data-view="performance"><span>¥</span>月度业绩</button>
           <button class="nav-item" data-view="tasks"><span>✓</span>我的待办<i id="task-badge">0</i></button>
-          <button class="nav-item admin-only" data-view="admin"><span>◎</span>管理后台</button>
+          <button class="nav-item" data-view="expenses"><span>¥</span>费用报销</button>
+          <button class="nav-item super-admin-only" data-view="admin"><span>◎</span>超级管理</button>
         </nav>
         <div class="sidebar-note">
           <span>协作规则</span>
@@ -156,6 +157,14 @@
           <div id="performance-warning" class="performance-warning is-hidden"></div>
         </section>
 
+        <section id="view-expenses" class="view">
+          <div class="panel expense-panel">
+            <div class="panel-head"><div><p class="eyebrow">EXPENSE CLAIMS</p><h3 id="expense-view-title">我的费用报销</h3></div><button id="open-expense-dialog" class="button primary">＋ 提交报销申请</button></div>
+            <p id="expense-view-note" class="expense-view-note">申请将提交给钉钉超级管理员审批。</p>
+            <div id="expense-list" class="expense-grid"><div class="loading-line"></div></div>
+          </div>
+        </section>
+
         <section id="view-admin" class="view">
           <div class="panel admin-panel admin-data-panel">
             <div class="panel-head"><div><p class="eyebrow">DATA OPERATIONS</p><h3>订单数据管理</h3></div><button id="admin-create-order" class="button primary">＋ 新增订单</button></div>
@@ -216,6 +225,20 @@
           <label><span>物流公司 *</span><input name="logisticsCompany" required /></label><label><span>物流单号 *</span><input name="trackingNo" required /></label><label><span>发货日期 *</span><input name="shippedOn" type="date" required /></label><label><span>预计到达 *</span><input name="estimatedArrivalOn" type="date" required /></label><label class="span-2"><span>备注</span><textarea name="note" rows="3"></textarea></label>
         </div><label class="upload-zone"><input id="shipment-files" type="file" accept="image/*" multiple /><span>＋ 选择物流凭证</span><small>最多 9 张图片</small></label><div id="shipment-previews" class="file-previews"></div></div>
         <div class="modal-foot"><button class="button secondary modal-close" value="cancel">取消</button><button id="save-shipment" type="submit" class="button primary">确认发货</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="expense-dialog" class="modal">
+      <form id="expense-form" method="dialog">
+        <div class="modal-head"><div><p class="eyebrow">NEW EXPENSE CLAIM</p><h3>提交报销申请</h3></div><button class="icon-button modal-close" value="cancel">×</button></div>
+        <div class="form-scroll"><div class="form-grid cols-2">
+          <label><span>费用类型 *</span><select name="category" required><option value="travel">差旅费</option><option value="transport">交通费</option><option value="meals">餐饮费</option><option value="office">办公费</option><option value="freight">物流费</option><option value="client">客户招待</option><option value="other">其他</option></select></label>
+          <label><span>费用日期 *</span><input name="incurredOn" type="date" required /></label>
+          <label><span>币种 *</span><select name="currency"><option>CNY</option><option>USD</option><option>EUR</option></select></label>
+          <label><span>报销金额 *</span><input name="amount" type="number" min="0.01" step="0.01" required /></label>
+          <label class="span-2"><span>费用说明 *</span><textarea name="description" rows="4" maxlength="1000" required placeholder="说明费用用途、关联客户或项目"></textarea></label>
+        </div><label class="upload-zone"><input id="expense-files" type="file" accept="image/*" multiple /><span>＋ 选择发票 / 付款凭证</span><small>最多 9 张图片</small></label><div id="expense-previews" class="file-previews"></div></div>
+        <div class="modal-foot"><button class="button secondary modal-close" value="cancel">取消</button><button id="save-expense" type="submit" class="button primary">提交给超级管理员</button></div>
       </form>
     </dialog>
 

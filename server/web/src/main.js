@@ -10,7 +10,9 @@ const today = () => {
 const currentMonth = () => today().slice(0, 7);
 const money = (value) => Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
-const roleNames = { sales: '业务员', purchase: '采购', logistics: '物流', admin: '管理员' };
+const roleNames = { sales: '业务员', purchase: '采购', logistics: '物流', admin: '外贸经理' };
+const expenseCategoryNames = { travel: '差旅费', transport: '交通费', meals: '餐饮费', office: '办公费', freight: '物流费', client: '客户招待', other: '其他' };
+const expenseStatusNames = { pending: '待审批', approved: '已通过', rejected: '已驳回' };
 const statusMeta = {
   pending_purchase: { label: '待采购', className: 'pending_purchase' },
   purchasing: { label: '采购中', className: 'purchasing' },
@@ -38,6 +40,8 @@ const state = {
   productDrafts: [],
   paymentAttachments: [],
   shipmentAttachments: [],
+  expenseAttachments: [],
+  expenses: [],
   shipmentOrderId: '',
   shipmentMode: 'create',
   adminEditProducts: [],
@@ -232,6 +236,7 @@ function renderAccount() {
     ? `<img src="${escapeHtml(user.avatarUrl)}" alt="" />`
     : escapeHtml((user.name || '航').slice(0, 1));
   $$('.admin-only').forEach((element) => element.classList.toggle('is-hidden', user.role !== 'admin'));
+  $$('.super-admin-only').forEach((element) => element.classList.toggle('is-hidden', !user.isDingAdmin));
   $$('.sales-only').forEach((element) => element.classList.toggle('is-hidden', !['sales', 'admin'].includes(user.role)));
 }
 
@@ -484,7 +489,7 @@ function renderTasks() {
 
 function renderAdminOrders() {
   const body = $('#admin-orders-body');
-  if (!body || state.user?.role !== 'admin') return;
+  if (!body || !state.user?.isDingAdmin) return;
   body.innerHTML = state.orders.map((order) => `<tr data-order-id="${order.id}">
     <td><div class="order-cell"><strong>${escapeHtml(order.orderNo)}</strong><span>${escapeHtml(String(order.deadline || '').slice(0, 10))}</span></div></td>
     <td>${escapeHtml(order.customerName)}</td><td>${order.productCount || 0} 款</td>
@@ -500,7 +505,7 @@ const taskCards = (orders, shipping) => orders.length ? orders.map((order) => `<
 </article>`).join('') : emptyMarkup(shipping ? '没有待发货订单' : '没有采购任务');
 
 function switchView(view) {
-  if (view === 'admin' && state.user?.role !== 'admin') return;
+  if (view === 'admin' && !state.user?.isDingAdmin) return;
   if (view === 'performance' && !['sales', 'admin'].includes(state.user?.role)) return;
   state.currentView = view;
   $$('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
@@ -508,12 +513,14 @@ function switchView(view) {
   const titles = {
     dashboard: ['OPERATIONS BOARD', '今日协作总览'], orders: ['ORDER MANIFEST', '订单中心'],
     performance: ['COMMISSION LEDGER', '月度业绩'], tasks: ['ACTION QUEUE', '我的待办'],
-    admin: ['DATA ADMINISTRATION', '管理员后台']
+    expenses: ['EXPENSE CLAIMS', state.user?.isDingAdmin ? '费用报销审批' : '我的费用报销'],
+    admin: ['SUPER ADMINISTRATION', '超级管理后台']
   };
   $('#view-kicker').textContent = titles[view][0];
   $('#view-title').textContent = titles[view][1];
   if (view === 'admin') loadMembers();
   if (view === 'performance') loadPerformance();
+  if (view === 'expenses') loadExpenses();
 }
 
 async function openDetail(id) {
@@ -578,7 +585,7 @@ function renderDetail() {
     ${attachments.length ? `<section class="detail-block"><h4>关联凭证</h4><div class="attachment-list">${attachments.map((file) => `<a href="${escapeHtml(file.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(file.fileName)}</a>`).join('')}</div></section>` : ''}`;
 
   const actions = [];
-  if (state.user?.role === 'admin') {
+  if (state.user?.isDingAdmin) {
     actions.push('<button class="button secondary" data-admin-edit-detail>编辑订单</button>');
     if (order.shipment) {
       actions.push('<button class="button secondary" data-admin-edit-shipment>修改物流</button>');
@@ -678,13 +685,16 @@ async function uploadProductFiles(index, files) {
 }
 
 async function uploadAttachments(files, category) {
-  const target = category === 'payment' ? state.paymentAttachments : state.shipmentAttachments;
+  const target = category === 'payment' ? state.paymentAttachments
+    : category === 'expense' ? state.expenseAttachments : state.shipmentAttachments;
   const remaining = 9 - target.length;
   if (remaining <= 0) return toast('最多上传 9 张图片');
   setBusy(true, '正在上传图片…');
   try {
     for (const file of [...files].slice(0, remaining)) target.push(await uploadImage(file, category));
-    category === 'payment' ? renderPaymentPreviews() : renderShipmentPreviews();
+    if (category === 'payment') renderPaymentPreviews();
+    else if (category === 'expense') renderExpensePreviews();
+    else renderShipmentPreviews();
     toast('图片已上传至 OSS');
   } catch (error) { toast(`图片上传失败：${error.message}`); }
   finally { setBusy(false); }
@@ -693,6 +703,77 @@ async function uploadAttachments(files, category) {
 const previewMarkup = (items, category) => items.map((file, index) => `<div class="file-chip"><img src="${escapeHtml(file.url)}" alt="" /><button type="button" data-remove-file="${category}:${index}">×</button></div>`).join('');
 const renderPaymentPreviews = () => { $('#payment-previews').innerHTML = previewMarkup(state.paymentAttachments, 'payment'); };
 const renderShipmentPreviews = () => { $('#shipment-previews').innerHTML = previewMarkup(state.shipmentAttachments, 'shipment'); };
+const renderExpensePreviews = () => { $('#expense-previews').innerHTML = previewMarkup(state.expenseAttachments, 'expense'); };
+
+function openExpenseDialog() {
+  state.expenseAttachments = [];
+  $('#expense-form').reset();
+  $('#expense-form [name="incurredOn"]').value = today();
+  renderExpensePreviews();
+  $('#expense-dialog').showModal();
+}
+
+async function submitExpense(event) {
+  event.preventDefault();
+  if (state.busy) return;
+  const form = new FormData(event.currentTarget);
+  const data = {
+    category: form.get('category'),
+    incurredOn: form.get('incurredOn'),
+    currency: form.get('currency'),
+    amount: Number(form.get('amount')),
+    description: String(form.get('description') || '').trim(),
+    attachments: state.expenseAttachments
+  };
+  setBusy(true);
+  $('#save-expense').textContent = '正在提交…';
+  try {
+    await api('/api/expenses', { method: 'POST', body: JSON.stringify(data) });
+    $('#expense-dialog').close();
+    await loadExpenses();
+    toast('报销申请已提交给超级管理员');
+  } catch (error) { toast(`报销申请提交失败：${error.message}`); }
+  finally { $('#save-expense').textContent = '提交给超级管理员'; setBusy(false); }
+}
+
+async function loadExpenses() {
+  $('#expense-list').innerHTML = '<div class="loading-line"></div>';
+  try {
+    const result = await api('/api/expenses');
+    state.expenses = result.items || [];
+    renderExpenses();
+  } catch (error) {
+    $('#expense-list').innerHTML = `<div class="empty-state"><strong>报销记录读取失败</strong><span>${escapeHtml(error.message)}</span></div>`;
+  }
+}
+
+function renderExpenses() {
+  const isSuperAdmin = Boolean(state.user?.isDingAdmin);
+  $('#expense-view-title').textContent = isSuperAdmin ? '费用报销审批' : '我的费用报销';
+  $('#expense-view-note').textContent = isSuperAdmin ? '待审批申请优先显示，可查阅全员报销记录。' : '申请将提交给钉钉超级管理员审批。';
+  $('#expense-list').innerHTML = state.expenses.map((expense) => {
+    const receipts = (expense.attachments || []).map((file) => `<a href="${escapeHtml(file.url || '#')}" target="_blank" rel="noreferrer"><img src="${escapeHtml(file.url || '')}" alt="${escapeHtml(file.fileName)}" /></a>`).join('');
+    const decision = isSuperAdmin && expense.status === 'pending' ? `<div class="expense-decision"><input data-expense-comment="${expense.id}" placeholder="审批意见（驳回时必填）" /><button class="button secondary" data-expense-decision="${expense.id}:rejected">驳回</button><button class="button primary" data-expense-decision="${expense.id}:approved">通过</button></div>` : '';
+    return `<article class="expense-card-pc">
+      <header><div><strong>${escapeHtml(isSuperAdmin ? expense.applicantName : expenseCategoryNames[expense.category] || expense.category)}</strong><span>${escapeHtml(expense.expenseNo)} · ${escapeHtml(String(expense.incurredOn).slice(0, 10))}</span></div><em class="expense-state ${escapeHtml(expense.status)}">${escapeHtml(expenseStatusNames[expense.status] || expense.status)}</em></header>
+      <div class="expense-money"><small>${escapeHtml(expense.currency)}</small>${money(expense.amount)}</div>
+      ${isSuperAdmin ? `<p>${escapeHtml(expenseCategoryNames[expense.category] || expense.category)}</p>` : ''}<blockquote>${escapeHtml(expense.description)}</blockquote>
+      ${receipts ? `<div class="expense-receipts-pc">${receipts}</div>` : ''}
+      ${expense.status !== 'pending' ? `<footer>审批人：${escapeHtml(expense.reviewerName || '超级管理员')}${expense.reviewComment ? ` · ${escapeHtml(expense.reviewComment)}` : ''}</footer>` : decision}
+    </article>`;
+  }).join('') || '<div class="empty-state"><strong>暂无报销记录</strong><span>点击右上角提交第一笔申请。</span></div>';
+}
+
+async function decideExpense(id, status) {
+  const input = document.querySelector(`[data-expense-comment="${id}"]`);
+  const comment = input?.value.trim() || '';
+  if (status === 'rejected' && !comment) return toast('驳回时请填写审批意见');
+  try {
+    await api(`/api/expenses/${id}/decision`, { method: 'PATCH', body: JSON.stringify({ status, comment }) });
+    await loadExpenses();
+    toast(status === 'approved' ? '报销已通过' : '报销已驳回');
+  } catch (error) { toast(`审批失败：${error.message}`); }
+}
 
 async function submitOrder(event) {
   event.preventDefault();
@@ -800,7 +881,7 @@ async function submitShipment(event) {
 }
 
 async function openAdminOrderEditor(orderId) {
-  if (state.user?.role !== 'admin') return;
+  if (!state.user?.isDingAdmin) return;
   try {
     let order = state.currentDetail?.id === orderId ? state.currentDetail : null;
     if (!order) order = (await api(`/api/orders/${encodeURIComponent(orderId)}`)).order;
@@ -889,7 +970,7 @@ async function deleteAdminShipment() {
 }
 
 async function loadMembers() {
-  if (state.user?.role !== 'admin') return;
+  if (!state.user?.isDingAdmin) return;
   $('#members-body').innerHTML = '<tr><td colspan="6"><div class="loading-line"></div></td></tr>';
   try {
     const result = await api('/api/admin/users');
@@ -901,7 +982,7 @@ async function loadMembers() {
 
 function renderMembers() {
   $('#members-body').innerHTML = state.members.map((member) => `<tr data-member-id="${member.id}">
-    <td><div class="member-info"><div class="avatar">${escapeHtml((member.name || '·').slice(0,1))}</div><div><strong>${escapeHtml(member.name)}${member.isDingAdmin ?? member.is_ding_admin ? '<em class="ding-admin-mark">钉钉管理员</em>' : ''}</strong><span>${escapeHtml(member.title || member.mobile || '未填写职位')}</span></div></div></td>
+    <td><div class="member-info"><div class="avatar">${escapeHtml((member.name || '·').slice(0,1))}</div><div><strong>${escapeHtml(member.name)}${member.isDingAdmin ?? member.is_ding_admin ? '<em class="ding-admin-mark">超级管理员</em>' : ''}</strong><span>${escapeHtml(member.title || member.mobile || '未填写职位')}</span></div></div></td>
     <td class="muted">${escapeHtml(member.dingUserId || member.ding_user_id || '—')}</td>
     <td><select class="role-select" data-member-role="${member.id}" ${member.id === state.user.id || (member.isDingAdmin ?? member.is_ding_admin) ? 'disabled' : ''}>${Object.entries(roleNames).map(([value, label]) => `<option value="${value}" ${member.role === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td>
     <td>${['sales', 'admin'].includes(member.role) ? `<input class="commission-input" data-member-commission="${member.id}" type="number" min="0" max="100" step="0.01" value="${Number(member.commissionRatePercent ?? member.commission_rate_percent ?? 0)}" aria-label="${escapeHtml(member.name)}提成比例" /> %` : '—'}</td>
@@ -975,8 +1056,17 @@ function bindEvents() {
     const remove = event.target.closest('[data-remove-file]');
     if (remove) {
       const [category, indexText] = remove.dataset.removeFile.split(':');
-      const target = category === 'payment' ? state.paymentAttachments : state.shipmentAttachments;
-      target.splice(Number(indexText), 1); category === 'payment' ? renderPaymentPreviews() : renderShipmentPreviews();
+      const target = category === 'payment' ? state.paymentAttachments
+        : category === 'expense' ? state.expenseAttachments : state.shipmentAttachments;
+      target.splice(Number(indexText), 1);
+      if (category === 'payment') renderPaymentPreviews();
+      else if (category === 'expense') renderExpensePreviews();
+      else renderShipmentPreviews();
+    }
+    const expenseDecision = event.target.closest('[data-expense-decision]');
+    if (expenseDecision) {
+      const [id, status] = expenseDecision.dataset.expenseDecision.split(':');
+      decideExpense(id, status);
     }
   });
   $('#close-detail').addEventListener('click', closeDetail);
@@ -1006,6 +1096,9 @@ function bindEvents() {
   });
   $('#payment-files').addEventListener('change', (event) => uploadAttachments(event.target.files, 'payment'));
   $('#shipment-files').addEventListener('change', (event) => uploadAttachments(event.target.files, 'logistics'));
+  $('#expense-files').addEventListener('change', (event) => uploadAttachments(event.target.files, 'expense'));
+  $('#open-expense-dialog').addEventListener('click', openExpenseDialog);
+  $('#expense-form').addEventListener('submit', submitExpense);
   $('#create-form').addEventListener('submit', submitOrder);
   $('#shipment-form').addEventListener('submit', submitShipment);
   $('#admin-order-form').addEventListener('submit', saveAdminOrder);

@@ -5,12 +5,12 @@
 ## 已实现能力
 
 - `dd.getAuthCode` 授权码换取钉钉用户身份
-- `/pc/` 桌面端工作台，支持钉钉 PC 免登、订单、采购、发货、OSS 图片和管理员数据维护
+- `/pc/` 桌面端工作台，支持钉钉 PC 免登、订单、采购、发货、费用报销、OSS 图片和超级管理员审批
 - 管理后台打开或刷新成员列表时，会分页同步钉钉根部门（`dept_id=1`）直属员工；需要应用开通“通讯录部门成员读权限”
-- 钉钉返回 `admin=true` 的员工自动成为系统管理员；其他新员工默认为业务员，之后可在管理后台调整系统角色
+- 钉钉返回 `admin=true` 的员工自动成为超级管理员，并使用外贸经理业务角色；其他新员工默认为业务员，之后可由超级管理员调整系统角色
 - 新建订单支持导入 `.xlsx` PI 报价单，自动识别客户、产品、规格、体积、数量、单价及嵌入式产品图片；图片会转存至 OSS
 - 应用 accessToken 内存缓存及提前刷新
-- 业务、采购、物流、管理员四类服务端权限
+- 业务、采购、物流、外贸经理四类业务权限；外贸经理可查看三个业务视角，钉钉超级管理员另有成员管理与报销审批权限
 - 一个订单包含多个产品和颜色款式
 - 产品采购逐行完成，自动汇总订单状态
 - 已采购订单创建物流记录并转为已发货
@@ -82,7 +82,7 @@ DING_PURCHASE_USER_IDS=buyer1,buyer2
 DING_LOGISTICS_USER_IDS=warehouse1
 ```
 
-未命中名单的首次登录用户默认为业务员。管理员也可以通过管理接口修改角色；服务端每次请求都会读取数据库中的最新角色，因此旧 JWT 不会保留已撤销权限。
+未命中名单的首次登录用户默认为业务员。超级管理员可以通过管理接口修改角色；服务端每次请求都会读取数据库中的最新角色和钉钉管理员身份，因此旧 JWT 不会保留已撤销权限。
 
 ## 主要接口
 
@@ -94,17 +94,20 @@ DING_LOGISTICS_USER_IDS=warehouse1
 | GET | `/api/auth/me` | 登录用户 | 获取当前用户 |
 | POST | `/api/uploads/image` | 登录用户 | 上传不超过 10 MB 的图片至 OSS |
 | GET | `/api/orders` | 登录用户 | 按角色查询订单 |
-| POST | `/api/orders` | 业务、管理员 | 创建多产品订单 |
-| POST | `/api/imports/pi` | 业务、管理员 | 解析 PI 报价单并返回可编辑订单草稿 |
+| POST | `/api/orders` | 业务、外贸经理 | 创建多产品订单 |
+| POST | `/api/imports/pi` | 业务、外贸经理 | 解析 PI 报价单并返回可编辑订单草稿 |
 | GET | `/api/orders/:id` | 相关角色 | 查询完整订单 |
-| PUT | `/api/orders/:id` | 管理员 | 修改订单、负责人和全部产品明细 |
-| DELETE | `/api/orders/:id` | 管理员 | 删除订单及其数据库关联数据 |
-| POST | `/api/orders/:id/purchase-complete` | 采购、管理员 | 完成指定或全部产品采购 |
-| POST | `/api/orders/:id/shipments` | 物流、管理员 | 创建发货记录 |
-| PUT | `/api/orders/:id/shipment` | 管理员 | 修改物流记录 |
-| DELETE | `/api/orders/:id/shipment` | 管理员 | 删除物流记录并按产品采购进度恢复订单状态 |
-| GET | `/api/admin/users` | 管理员 | 同步根部门直属员工并返回系统用户列表 |
-| PATCH | `/api/admin/users/:id/role` | 管理员 | 修改角色 |
+| PUT | `/api/orders/:id` | 超级管理员 | 修改订单、负责人和全部产品明细 |
+| DELETE | `/api/orders/:id` | 超级管理员 | 删除订单及其数据库关联数据 |
+| POST | `/api/orders/:id/purchase-complete` | 采购、外贸经理 | 完成指定或全部产品采购 |
+| POST | `/api/orders/:id/shipments` | 物流、外贸经理 | 创建发货记录 |
+| PUT | `/api/orders/:id/shipment` | 超级管理员 | 修改物流记录 |
+| DELETE | `/api/orders/:id/shipment` | 超级管理员 | 删除物流记录并按产品采购进度恢复订单状态 |
+| GET | `/api/admin/users` | 超级管理员 | 同步根部门直属员工并返回系统用户列表 |
+| PATCH | `/api/admin/users/:id/role` | 超级管理员 | 修改业务角色 |
+| GET | `/api/expenses` | 登录用户 | 员工查看本人申请；超级管理员查看全员申请 |
+| POST | `/api/expenses` | 登录用户 | 提交费用报销及 OSS 凭证 |
+| PATCH | `/api/expenses/:id/decision` | 超级管理员 | 通过或驳回待审批报销 |
 
 上传接口返回的 OSS 附件格式，可直接用于创建订单：
 

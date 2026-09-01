@@ -5,7 +5,7 @@
   "window": {
     "defaultTitle": "航迹协作",
     "titleBarColor": "#F3F6F8",
-    "pullRefresh": false,
-    "allowsBounceVertical": "NO"
+    "pullRefresh": true,
+    "allowsBounceVertical": "YES"
   }
 }

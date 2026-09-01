@@ -10,6 +10,7 @@ import { AppError } from './errors.js';
 import { logger } from './logger.js';
 import authRouter from './routes/auth.js';
 import exchangeRatesRouter from './routes/exchange-rates.js';
+import expensesRouter from './routes/expenses.js';
 import importsRouter from './routes/imports.js';
 import ordersRouter from './routes/orders.js';
 import performanceRouter from './routes/performance.js';
@@ -40,6 +41,7 @@ export const createApp = () => {
   app.get('/api/public-config', (_req, res) => res.json({ corpId: config.dingTalk.corpId }));
   app.use('/api/auth', authRouter);
   app.use('/api/exchange-rates', exchangeRatesRouter);
+  app.use('/api/expenses', expensesRouter);
   app.use('/api/imports', importsRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/performance', performanceRouter);

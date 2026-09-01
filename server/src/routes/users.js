@@ -4,12 +4,12 @@ import { z } from 'zod';
 import { query, withTransaction } from '../db.js';
 import { conflict, notFound } from '../errors.js';
 import { logger } from '../logger.js';
-import { authenticate, requireRoles } from '../middleware/auth.js';
+import { authenticate, requireDingAdmin } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { listRootDepartmentUsers } from '../services/dingtalk.js';
 
 const router = Router();
-router.use(authenticate, requireRoles('admin'));
+router.use(authenticate, requireDingAdmin);
 
 const syncRootDepartment = async () => {
   const profiles = await listRootDepartmentUsers();
@@ -61,12 +61,8 @@ router.get('/', async (_req, res) => {
 router.patch('/:id/role', validate(z.object({ role: z.enum(['sales', 'purchase', 'logistics', 'admin']) })), async (req, res) => {
   const rows = await query('SELECT id, is_ding_admin FROM users WHERE id = ? LIMIT 1', [req.params.id]);
   if (!rows[0]) throw notFound('User not found');
-  if (rows[0].is_ding_admin && req.body.role !== 'admin') {
-    throw conflict('DingTalk administrators must keep the system administrator role');
-  }
-  if (req.params.id === req.user.sub && req.body.role !== 'admin') {
-    throw conflict('You cannot remove your own administrator role');
-  }
+  if (rows[0].is_ding_admin && req.body.role !== 'admin') throw conflict('DingTalk super administrators must keep the foreign trade manager role');
+  if (req.params.id === req.user.sub && req.body.role !== 'admin') throw conflict('You cannot remove your own foreign trade manager role');
   const result = await query('UPDATE users SET role = ? WHERE id = ?', [req.body.role, req.params.id]);
   res.json({ id: req.params.id, role: req.body.role });
 });

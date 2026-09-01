@@ -55,7 +55,7 @@ export const getOssDownloadUrl = (objectKey) => {
 export const uploadImageToOss = async (file, category = 'misc') => {
   const now = new Date();
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const safeCategory = ['product', 'payment', 'logistics'].includes(category) ? category : 'misc';
+  const safeCategory = ['product', 'payment', 'logistics', 'expense'].includes(category) ? category : 'misc';
   const objectKey = `${config.oss.uploadDir}/${safeCategory}/${now.getUTCFullYear()}/${month}/${randomUUID()}${safeExtension(file)}`;
   await getClient().put(objectKey, file.buffer, {
     mime: file.mimetype,

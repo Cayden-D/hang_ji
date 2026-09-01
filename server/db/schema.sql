@@ -134,3 +134,40 @@ CREATE TABLE IF NOT EXISTS order_status_history (
   CONSTRAINT fk_history_actor FOREIGN KEY (actor_user_id) REFERENCES users(id),
   INDEX idx_history_order_created (order_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS expenses (
+  id CHAR(36) PRIMARY KEY,
+  expense_no VARCHAR(40) NOT NULL UNIQUE,
+  applicant_user_id CHAR(36) NOT NULL,
+  category ENUM('travel', 'transport', 'meals', 'office', 'freight', 'client', 'other') NOT NULL,
+  amount DECIMAL(18,2) NOT NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'CNY',
+  incurred_on DATE NOT NULL,
+  description VARCHAR(1000) NOT NULL,
+  status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  reviewer_user_id CHAR(36) NULL,
+  review_comment VARCHAR(1000) NULL,
+  reviewed_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  CONSTRAINT fk_expenses_applicant FOREIGN KEY (applicant_user_id) REFERENCES users(id),
+  CONSTRAINT fk_expenses_reviewer FOREIGN KEY (reviewer_user_id) REFERENCES users(id),
+  INDEX idx_expenses_applicant_created (applicant_user_id, created_at),
+  INDEX idx_expenses_status_created (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS expense_attachments (
+  id CHAR(36) PRIMARY KEY,
+  expense_id CHAR(36) NOT NULL,
+  file_name VARCHAR(512) NOT NULL,
+  file_size BIGINT UNSIGNED NULL,
+  file_type VARCHAR(64) NULL,
+  storage_provider VARCHAR(32) NOT NULL DEFAULT 'oss',
+  object_key VARCHAR(1024) NOT NULL,
+  uploaded_by CHAR(36) NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  CONSTRAINT fk_expense_attachments_expense FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+  CONSTRAINT fk_expense_attachments_uploader FOREIGN KEY (uploaded_by) REFERENCES users(id),
+  INDEX idx_expense_attachments_expense (expense_id),
+  INDEX idx_expense_attachments_object_key (object_key(128))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

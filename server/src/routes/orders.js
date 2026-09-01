@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { conflict, forbidden, notFound } from '../errors.js';
-import { authenticate, requireRoles } from '../middleware/auth.js';
+import { authenticate, requireDingAdmin, requireRoles } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { canViewOrder, derivePurchaseStatus } from '../domain/order-state.js';
 import { getOrderDetail, mapOrder } from '../repositories/orders.js';
@@ -147,7 +147,7 @@ router.get('/:id', async (req, res) => {
   res.json({ order });
 });
 
-router.put('/:id', requireRoles('admin'), validate(adminReplaceOrderSchema), async (req, res) => {
+router.put('/:id', requireDingAdmin, validate(adminReplaceOrderSchema), async (req, res) => {
   const body = req.body;
   await withTransaction(async (connection) => {
     const [orders] = await connection.execute('SELECT * FROM orders WHERE id = ? FOR UPDATE', [req.params.id]);
@@ -232,7 +232,7 @@ router.put('/:id', requireRoles('admin'), validate(adminReplaceOrderSchema), asy
   res.json({ order: await getOrderDetail(req.params.id) });
 });
 
-router.delete('/:id', requireRoles('admin'), async (req, res) => {
+router.delete('/:id', requireDingAdmin, async (req, res) => {
   await withTransaction(async (connection) => {
     const [orders] = await connection.execute('SELECT id FROM orders WHERE id = ? FOR UPDATE', [req.params.id]);
     if (!orders[0]) throw notFound('Order not found');
@@ -354,7 +354,7 @@ router.post('/:id/shipments', requireRoles('logistics', 'admin'), validate(shipm
   res.status(201).json({ order: await getOrderDetail(req.params.id) });
 });
 
-router.put('/:id/shipment', requireRoles('admin'), validate(adminUpdateShipmentSchema), async (req, res) => {
+router.put('/:id/shipment', requireDingAdmin, validate(adminUpdateShipmentSchema), async (req, res) => {
   const body = req.body;
   const result = await query(
     `UPDATE shipments SET logistics_company = ?, tracking_no = ?, shipped_on = ?, estimated_arrival_on = ?, note = ?
@@ -370,7 +370,7 @@ router.put('/:id/shipment', requireRoles('admin'), validate(adminUpdateShipmentS
   res.json({ order: await getOrderDetail(req.params.id) });
 });
 
-router.delete('/:id/shipment', requireRoles('admin'), async (req, res) => {
+router.delete('/:id/shipment', requireDingAdmin, async (req, res) => {
   await withTransaction(async (connection) => {
     const [shipments] = await connection.execute(
       `SELECT s.id, o.status FROM shipments s

@@ -15,12 +15,16 @@ const request = ({ path, method = 'GET', data, authenticated = true }) => new Pr
     return;
   }
   const app = getApp();
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    Pragma: 'no-cache'
+  };
   if (authenticated && app.globalData.sessionToken) {
     headers.Authorization = 'Bearer ' + app.globalData.sessionToken;
   }
   dd.httpRequest({
-    url: apiBaseUrl + path,
+    url: apiBaseUrl + path + (method === 'GET' ? (path.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now() : ''),
     method,
     headers,
     data: data === undefined ? undefined : JSON.stringify(data),
@@ -143,4 +147,14 @@ const performance = {
   leaderboard: (month) => request({ path: '/api/performance/leaderboard?month=' + encodeURIComponent(month) })
 };
 
-module.exports = { request, uploadImage, uploadPi, loginWithDingTalk, orders, adminUsers, exchangeRates, performance };
+const expenses = {
+  list: () => request({ path: '/api/expenses' }),
+  create: (data) => request({ path: '/api/expenses', method: 'POST', data }),
+  decide: (id, status, comment) => request({
+    path: '/api/expenses/' + encodeURIComponent(id) + '/decision',
+    method: 'PATCH',
+    data: { status, comment }
+  })
+};
+
+module.exports = { request, uploadImage, uploadPi, loginWithDingTalk, orders, adminUsers, exchangeRates, performance, expenses };

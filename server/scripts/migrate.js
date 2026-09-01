@@ -61,8 +61,14 @@ try {
     [process.env.DB_NAME || 'hangji']
   );
   const orderColumns = new Set(orderRows.map((row) => row.COLUMN_NAME));
+  // 旧版“到账人民币(received_cny)”更名为“实收美金(received_usd)”，已有数据直接迁移保留。
+  if (orderColumns.has('received_cny') && !orderColumns.has('received_usd')) {
+    await connection.query('ALTER TABLE orders CHANGE received_cny received_usd DECIMAL(18,2) NULL');
+    orderColumns.delete('received_cny');
+    orderColumns.add('received_usd');
+  }
   const financeColumns = {
-    received_cny: 'DECIMAL(18,2) NULL',
+    received_usd: 'DECIMAL(18,2) NULL',
     exchange_rate: 'DECIMAL(12,6) NULL',
     commission_rate_percent: 'DECIMAL(6,3) NULL',
     is_completed: 'BOOLEAN NOT NULL DEFAULT FALSE',

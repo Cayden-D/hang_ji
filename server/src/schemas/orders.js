@@ -35,7 +35,7 @@ export const createOrderSchema = z.object({
   paymentMethod: z.enum(['T/T', 'L/C', 'D/P', 'D/A', '信保全款', 'OTHER']),
   currency: z.string().trim().toUpperCase().length(3).default('USD'),
   freight: money.default(0),
-  receivedCny: money.optional().nullable(),
+  receivedUsd: money.optional().nullable(),
   note: z.string().trim().max(5000).optional().nullable(),
   products: z.array(product).min(1).max(100),
   paymentAttachments: z.array(attachment).max(9).default([])
@@ -104,7 +104,7 @@ export const adminReplaceOrderSchema = z.object({
   paymentMethod: z.enum(['T/T', 'L/C', 'D/P', 'D/A', '信保全款', 'OTHER']),
   currency: z.string().trim().toUpperCase().length(3),
   freight: money,
-  receivedCny: money.optional().nullable(),
+  receivedUsd: money.optional().nullable(),
   exchangeRate: z.coerce.number().positive().max(1000).optional().nullable(),
   isCompleted: z.boolean().optional(),
   note: z.string().trim().max(5000).optional().nullable(),

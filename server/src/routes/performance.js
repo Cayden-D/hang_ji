@@ -58,7 +58,7 @@ const mapPerformanceItem = (row, monthRate) => {
     totalAmount: row.goods_total,
     purchaseTotal: row.purchase_total,
     freight: row.freight,
-    receivedCny: row.received_cny,
+    receivedUsd: row.received_usd,
     exchangeRate: effectiveRate,
     commissionRatePercent: effectiveCommissionRate
   });
@@ -71,7 +71,7 @@ const mapPerformanceItem = (row, monthRate) => {
     ownerName: row.owner_name,
     currency: row.currency,
     orderAmount: row.goods_total,
-    receivedCny: row.received_cny,
+    receivedUsd: row.received_usd,
     productCost: row.purchase_total,
     freight: row.freight,
     exchangeRate: effectiveRate,
@@ -119,7 +119,7 @@ router.get('/monthly', validate(performanceQuery, 'query'), async (req, res) => 
     summary: {
       orderCount: items.length,
       orderAmount: sum('orderAmount'),
-      receivedCny: sum('revenueCny'),
+      revenueCny: sum('revenueCny'),
       profitCny: sum('profitCny'),
       commissionCny: sum('commissionCny'),
       completedCommissionCny: sum('commissionCny', (item) => item.isCompleted)
@@ -154,7 +154,7 @@ router.get('/leaderboard', validate(leaderboardQuery, 'query'), async (req, res)
     role: user.role,
     orderCount: 0,
     salesCny: 0,
-    receivedCny: 0,
+    revenueCny: 0,
     profitCny: 0,
     commissionCny: 0
   }]));
@@ -163,13 +163,13 @@ router.get('/leaderboard', validate(leaderboardQuery, 'query'), async (req, res)
     if (!total) return;
     total.orderCount += 1;
     total.salesCny += Number(item.convertedOrderAmountCny || 0);
-    total.receivedCny += Number(item.revenueCny || 0);
+    total.revenueCny += Number(item.revenueCny || 0);
     total.profitCny += Number(item.profitCny || 0);
     total.commissionCny += Number(item.commissionCny || 0);
   });
   const round = (value) => Math.round(value * 100) / 100;
   const leaders = [...totals.values()]
-    .map((item) => ({ ...item, salesCny: round(item.salesCny), receivedCny: round(item.receivedCny), profitCny: round(item.profitCny), commissionCny: round(item.commissionCny) }))
+    .map((item) => ({ ...item, salesCny: round(item.salesCny), revenueCny: round(item.revenueCny), profitCny: round(item.profitCny), commissionCny: round(item.commissionCny) }))
     .sort((a, b) => b.salesCny - a.salesCny || b.profitCny - a.profitCny || a.name.localeCompare(b.name, 'zh-CN'))
     .map((item, index) => ({ ...item, rank: index + 1 }));
   res.json({

@@ -50,7 +50,7 @@ export const mapOrder = (row) => ({
   totalAmount: row.total_amount,
   purchaseTotal: row.purchase_total,
   totalQuantity: row.total_quantity,
-  receivedCny: row.received_cny,
+  receivedUsd: row.received_usd,
   exchangeRate: row.exchange_rate,
   commissionRatePercent: row.commission_rate_percent,
   isCompleted: Boolean(row.is_completed),

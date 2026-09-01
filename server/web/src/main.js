@@ -374,7 +374,7 @@ function renderPerformance() {
   const report = state.performance;
   if (!report) return;
   $('#performance-orders').textContent = report.summary.orderCount;
-  $('#performance-received').textContent = `¥${money(report.summary.receivedCny)}`;
+  $('#performance-received').textContent = `¥${money(report.summary.revenueCny)}`;
   $('#performance-profit').textContent = `¥${money(report.summary.profitCny)}`;
   $('#performance-commission').textContent = `¥${money(report.summary.completedCommissionCny)}`;
   $('#performance-commission-note').textContent = `全部订单预计 ¥${money(report.summary.commissionCny)}`;
@@ -385,7 +385,7 @@ function renderPerformance() {
     <td><div class="performance-order"><strong>${escapeHtml(item.customerName)}</strong><span>${escapeHtml(item.orderNo)} · ${escapeHtml(item.orderDate)}</span></div></td>
     <td class="admin-only">${escapeHtml(item.ownerName)}</td>
     <td>${escapeHtml(item.currency)} ${money(item.orderAmount)}</td>
-    <td>${item.receivedCny == null ? (item.convertedOrderAmountCny == null ? '待汇率' : `≈ ¥${money(item.convertedOrderAmountCny)}`) : `¥${money(item.receivedCny)}`}</td>
+    <td>${item.receivedUsd == null ? (item.revenueCny == null ? '待汇率' : `≈ ¥${money(item.revenueCny)}`) : `¥${money(item.revenueCny)}`}</td>
     <td>${escapeHtml(item.currency)} ${money(item.productCost)}</td>
     <td>${escapeHtml(item.currency)} ${money(item.freight)}</td>
     <td class="${Number(item.profitCny) >= 0 ? 'profit-positive' : 'profit-negative'}">${item.profitCny == null ? '待汇率' : `¥${money(item.profitCny)}`}</td>
@@ -592,7 +592,7 @@ function renderDetail() {
       <div><span class="whole-purchase-kicker">WHOLE ORDER COST</span><h4>整单快速确认</h4><p>填写一笔总采购成本，即可确认所有剩余款式；无需逐款补齐成本。</p></div>
       <label><span>整单总采购成本</span><div><b>USD</b><input id="whole-purchase-total" type="number" min="0" step="0.01" value="${purchaseTotalValue}" placeholder="0.00" /></div></label>
     </section>` : ''}
-    <section class="detail-block"><h4>财务结算</h4><div class="detail-note">到账人民币：${order.receivedCny == null ? '尚未填写' : `¥${money(order.receivedCny)}`}<br />结算汇率：${order.exchangeRate || '按订单日期自动换算'} · ${order.isCompleted ? '已完结' : '未完结'}</div></section>
+    <section class="detail-block"><h4>财务结算</h4><div class="detail-note">实收美金：${order.receivedUsd == null ? '未填写（按总货值入账）' : `$${money(order.receivedUsd)}`}<br />结算汇率：${order.exchangeRate || '按订单日期自动换算'} · ${order.isCompleted ? '已完结' : '未完结'}</div></section>
     <section class="detail-block"><h4>交付信息</h4><div class="detail-note">${escapeHtml(order.shippingAddress || order.destination || '尚未填写交付地址')}<br />${escapeHtml(order.note || '无补充说明')}</div></section>
     ${order.shipment ? `<section class="detail-block"><h4>物流记录</h4><div class="detail-note">${escapeHtml(order.shipment.logisticsCompany)} · ${escapeHtml(order.shipment.trackingNo)}<br />${escapeHtml(String(order.shipment.shippedOn).slice(0,10))} → ${escapeHtml(String(order.shipment.estimatedArrivalOn).slice(0,10))}</div></section>` : ''}
     ${attachments.length ? `<section class="detail-block"><h4>关联凭证</h4><div class="attachment-list">${attachments.map((file) => `<a href="${escapeHtml(file.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(file.fileName)}</a>`).join('')}</div></section>` : ''}`;
@@ -807,7 +807,7 @@ async function submitOrder(event) {
     customerName: form.get('customerName'), customerContact: form.get('customerContact') || null,
     shippingAddress: form.get('shippingAddress') || null, destination: form.get('destination') || null,
     deadline: form.get('deadline'), paymentMethod: form.get('paymentMethod'), currency: 'USD',
-    freight: Number(form.get('freight') || 0), receivedCny: form.get('receivedCny') ? Number(form.get('receivedCny')) : null,
+    freight: Number(form.get('freight') || 0), receivedUsd: form.get('receivedUsd') ? Number(form.get('receivedUsd')) : null,
     note: form.get('note') || null,
     products: state.productDrafts.map((item) => ({ ...item,
       unitsPerCarton: Number(item.unitsPerCarton), cartons: Number(item.cartons), weight: Number(item.weight),
@@ -912,7 +912,7 @@ async function openAdminOrderEditor(orderId) {
     state.adminEditProducts = (order.products || []).map((item) => ({ ...item }));
     const form = $('#admin-order-form');
     form.reset();
-    ['customerName', 'customerContact', 'shippingAddress', 'destination', 'deadline', 'paymentMethod', 'currency', 'freight', 'receivedCny', 'exchangeRate', 'note'].forEach((field) => {
+    ['customerName', 'customerContact', 'shippingAddress', 'destination', 'deadline', 'paymentMethod', 'currency', 'freight', 'receivedUsd', 'exchangeRate', 'note'].forEach((field) => {
       const value = order[field];
       if (form.elements[field]) form.elements[field].value = field === 'deadline' ? String(value || '').slice(0, 10) : (value ?? '');
     });
@@ -947,7 +947,7 @@ async function saveAdminOrder(event) {
     customerName: form.get('customerName'), customerContact: form.get('customerContact') || null,
     shippingAddress: form.get('shippingAddress') || null, destination: form.get('destination') || null,
     deadline: form.get('deadline'), paymentMethod: form.get('paymentMethod'), currency: String(form.get('currency') || 'USD').toUpperCase(),
-    freight: Number(form.get('freight') || 0), receivedCny: form.get('receivedCny') ? Number(form.get('receivedCny')) : null,
+    freight: Number(form.get('freight') || 0), receivedUsd: form.get('receivedUsd') ? Number(form.get('receivedUsd')) : null,
     exchangeRate: form.get('exchangeRate') ? Number(form.get('exchangeRate')) : null,
     isCompleted: form.get('isCompleted') === 'on', note: form.get('note') || null, ownerUserId: form.get('ownerUserId'),
     products: state.adminEditProducts.map((item) => ({
@@ -1160,12 +1160,12 @@ if (previewMode) {
   };
   state.performance = {
     month: '2026-08',
-    summary: { orderCount: 3, receivedCny: 579480, profitCny: 142632, commissionCny: 4516.46, completedCommissionCny: 2680.20 },
+    summary: { orderCount: 3, revenueCny: 579078, profitCny: 142632, commissionCny: 4516.46, completedCommissionCny: 2680.20 },
     warnings: [],
     items: [
-      { id: 'preview-1', orderNo: 'SO-260810-A1F92C', orderDate: '2026-08-10', customerName: 'Nordhavn Living', ownerName: '林航', currency: 'USD', orderAmount: 28640, receivedCny: 193420, convertedOrderAmountCny: 193174, productCost: 17800, freight: 1320, profitCny: 64433, commissionRatePercent: 3.2, commissionCny: 2061.86, freightForwarder: '宁波远洋', isCompleted: false },
-      { id: 'preview-2', orderNo: 'SO-260809-8C70D4', orderDate: '2026-08-09', customerName: 'Maison Épure', ownerName: '周黎', currency: 'USD', orderAmount: 15820, receivedCny: 106860, convertedOrderAmountCny: 106704, productCost: 9600, freight: 880, profitCny: 36171, commissionRatePercent: 2.5, commissionCny: 904.28, freightForwarder: '海程国际', isCompleted: true },
-      { id: 'preview-3', orderNo: 'SO-260805-3D8E11', orderDate: '2026-08-05', customerName: 'Atelier Form', ownerName: '林航', currency: 'USD', orderAmount: 42100, receivedCny: 279200, convertedOrderAmountCny: 284080, productCost: 26800, freight: 2300, profitCny: 42028, commissionRatePercent: 3.2, commissionCny: 1344.90, freightForwarder: '迅达货运', isCompleted: true }
+      { id: 'preview-1', orderNo: 'SO-260810-A1F92C', orderDate: '2026-08-10', customerName: 'Nordhavn Living', ownerName: '林航', currency: 'USD', orderAmount: 28640, receivedUsd: null, revenueCny: 193174, convertedOrderAmountCny: 193174, productCost: 17800, freight: 1320, profitCny: 64433, commissionRatePercent: 3.2, commissionCny: 2061.86, freightForwarder: '宁波远洋', isCompleted: false },
+      { id: 'preview-2', orderNo: 'SO-260809-8C70D4', orderDate: '2026-08-09', customerName: 'Maison Épure', ownerName: '周黎', currency: 'USD', orderAmount: 15820, receivedUsd: null, revenueCny: 106704, convertedOrderAmountCny: 106704, productCost: 9600, freight: 880, profitCny: 36171, commissionRatePercent: 2.5, commissionCny: 904.28, freightForwarder: '海程国际', isCompleted: true },
+      { id: 'preview-3', orderNo: 'SO-260805-3D8E11', orderDate: '2026-08-05', customerName: 'Atelier Form', ownerName: '林航', currency: 'USD', orderAmount: 42100, receivedUsd: 41200, revenueCny: 279200, convertedOrderAmountCny: 284080, productCost: 26800, freight: 2300, profitCny: 42028, commissionRatePercent: 3.2, commissionCny: 1344.90, freightForwarder: '迅达货运', isCompleted: true }
     ]
   };
   state.leaderboardReport = {

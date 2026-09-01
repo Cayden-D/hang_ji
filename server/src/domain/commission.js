@@ -4,7 +4,7 @@ export const calculateOrderPerformance = ({
   totalAmount,
   purchaseTotal,
   freight,
-  receivedCny,
+  receivedUsd,
   exchangeRate,
   commissionRatePercent
 }) => {
@@ -15,7 +15,10 @@ export const calculateOrderPerformance = ({
   const percentage = Number(commissionRatePercent || 0);
   const profitOriginal = roundMoney(orderAmount - productCost - shippingCost);
   const convertedOrderAmountCny = rate > 0 ? roundMoney(orderAmount * rate) : null;
-  const revenueCny = receivedCny == null ? convertedOrderAmountCny : roundMoney(receivedCny);
+  // 财务入账：填写了实收美金则按“实收美金 × 汇率”入账；未填写则按总货值折算入账。
+  const revenueCny = receivedUsd == null
+    ? convertedOrderAmountCny
+    : (rate > 0 ? roundMoney(Number(receivedUsd) * rate) : null);
   const productCostCny = rate > 0 ? roundMoney(productCost * rate) : null;
   const freightCny = rate > 0 ? roundMoney(shippingCost * rate) : null;
   const profitCny = revenueCny == null || productCostCny == null || freightCny == null

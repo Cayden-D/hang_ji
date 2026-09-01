@@ -99,11 +99,11 @@ router.post('/', requireRoles('sales', 'admin'), validate(createOrderSchema), as
       `INSERT INTO orders
         (id, order_no, customer_name, customer_contact, shipping_address, destination, deadline,
          payment_method, currency, freight, goods_total, total_amount, purchase_total, total_quantity,
-         received_cny, status, note, owner_user_id)
+         received_usd, status, note, owner_user_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_purchase', ?, ?)`,
       [orderId, orderNo, body.customerName, body.customerContact ?? null, body.shippingAddress ?? null,
         body.destination ?? null, body.deadline, body.paymentMethod, body.currency, body.freight,
-        goodsTotal, goodsTotal + body.freight, purchaseTotal, totalQuantity, body.receivedCny ?? null,
+        goodsTotal, goodsTotal + body.freight, purchaseTotal, totalQuantity, body.receivedUsd ?? null,
         body.note ?? null, req.user.sub]
     );
     for (const product of body.products) {
@@ -205,7 +205,7 @@ router.put('/:id', requireDingAdmin, validate(adminReplaceOrderSchema), async (r
     const derivedStatus = derivePurchaseStatus(completed, body.products.length);
     const nextStatus = ['shipped', 'cancelled'].includes(order.status) ? order.status : derivedStatus;
     const nextIsCompleted = body.isCompleted ?? Boolean(order.is_completed);
-    const receivedCny = body.receivedCny === undefined ? order.received_cny : body.receivedCny;
+    const receivedUsd = body.receivedUsd === undefined ? order.received_usd : body.receivedUsd;
     const exchangeRate = body.exchangeRate === undefined ? order.exchange_rate : body.exchangeRate;
     const commissionSnapshot = nextIsCompleted
       ? (order.commission_rate_percent ?? owners[0].commission_rate_percent)
@@ -213,14 +213,14 @@ router.put('/:id', requireDingAdmin, validate(adminReplaceOrderSchema), async (r
     await connection.execute(
       `UPDATE orders SET customer_name = ?, customer_contact = ?, shipping_address = ?, destination = ?,
        deadline = ?, payment_method = ?, currency = ?, freight = ?, goods_total = ?, total_amount = ?,
-       purchase_total = ?, total_quantity = ?, received_cny = ?, exchange_rate = ?,
+       purchase_total = ?, total_quantity = ?, received_usd = ?, exchange_rate = ?,
        commission_rate_percent = ?, is_completed = ?,
        completed_at = CASE WHEN ? = TRUE THEN COALESCE(completed_at, NOW(3)) ELSE NULL END,
        status = ?, note = ?, owner_user_id = ?, version = version + 1
        WHERE id = ?`,
       [body.customerName, body.customerContact ?? null, body.shippingAddress ?? null, body.destination ?? null,
         body.deadline, body.paymentMethod, body.currency, body.freight, goodsTotal, goodsTotal + body.freight,
-        purchaseTotal, totalQuantity, receivedCny ?? null, exchangeRate ?? null, commissionSnapshot,
+        purchaseTotal, totalQuantity, receivedUsd ?? null, exchangeRate ?? null, commissionSnapshot,
         nextIsCompleted, nextIsCompleted, nextStatus, body.note ?? null, body.ownerUserId, order.id]
     );
     await connection.execute(

@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
   purchase_total DECIMAL(18,2) NOT NULL DEFAULT 0,
   total_quantity INT UNSIGNED NOT NULL DEFAULT 0,
-  received_cny DECIMAL(18,2) NULL,
+  received_usd DECIMAL(18,2) NULL,
   exchange_rate DECIMAL(12,6) NULL,
   commission_rate_percent DECIMAL(6,3) NULL,
   is_completed BOOLEAN NOT NULL DEFAULT FALSE,

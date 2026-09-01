@@ -110,7 +110,7 @@ Page({
     performanceWarning: '',
     performanceRateText: '美元金额统一按当月 1 日汇率折算',
     performanceItems: [],
-    performanceSummary: { orderCount: 0, orderAmount: '0.00', receivedCny: '0.00', profitCny: '0.00', commissionCny: '0.00' },
+    performanceSummary: { orderCount: 0, orderAmount: '0.00', revenueCny: '0.00', profitCny: '0.00', commissionCny: '0.00' },
     leaderboardLoading: false,
     leaderboard: [],
     monthlyChampion: null,
@@ -151,7 +151,7 @@ Page({
     stats: { urgent: 0, purchasing: 0, ready: 0, shipped: 0 },
     form: {
       customer: '', customerContact: '', shippingAddress: '', country: '', deadline: '', payment: 'T/T',
-      freight: '', receivedCny: '', note: '', paymentAttachments: [], products: [emptyProduct()]
+      freight: '', receivedUsd: '', note: '', paymentAttachments: [], products: [emptyProduct()]
     },
     shippingForm: {
       logisticsCompany: '', trackingNo: '', shippedOn: '', estimatedArrivalOn: '', note: '', attachments: []
@@ -355,7 +355,7 @@ Page({
       const items = (result.items || []).map((item) => ({
         ...item,
         orderAmountText: Number(item.orderAmount || 0).toFixed(2),
-        receivedCnyText: item.revenueCny === null ? '待录入' : Number(item.revenueCny || 0).toFixed(2),
+        revenueCnyText: item.revenueCny === null ? '待汇率' : (item.receivedUsd == null ? '≈ ' : '') + Number(item.revenueCny || 0).toFixed(2),
         productCostText: Number(item.productCost || 0).toFixed(2),
         freightText: Number(item.freight || 0).toFixed(2),
         profitCnyText: item.profitCny === null ? '待汇率' : Number(item.profitCny || 0).toFixed(2),
@@ -368,7 +368,7 @@ Page({
         performanceSummary: {
           orderCount: summary.orderCount || 0,
           orderAmount: Number(summary.orderAmount || 0).toFixed(2),
-          receivedCny: Number(summary.receivedCny || 0).toFixed(2),
+          revenueCny: Number(summary.revenueCny || 0).toFixed(2),
           profitCny: Number(summary.profitCny || 0).toFixed(2),
           commissionCny: Number(summary.commissionCny || 0).toFixed(2)
         },
@@ -706,7 +706,7 @@ Page({
         paymentMethod: f.payment,
         currency: 'USD',
         freight: Number(f.freight || 0),
-        receivedCny: f.receivedCny === '' ? null : Number(f.receivedCny),
+        receivedUsd: f.receivedUsd === '' ? null : Number(f.receivedUsd),
         note: f.note || null,
         products,
         paymentAttachments: f.paymentAttachments || []
@@ -718,7 +718,7 @@ Page({
         currentTab: 'orders',
         filter: 'all',
         submitting: false,
-        form: { customer: '', customerContact: '', shippingAddress: '', country: '', deadline: '', payment: 'T/T', freight: '', receivedCny: '', note: '', paymentAttachments: [], products: [emptyProduct()] }
+        form: { customer: '', customerContact: '', shippingAddress: '', country: '', deadline: '', payment: 'T/T', freight: '', receivedUsd: '', note: '', paymentAttachments: [], products: [emptyProduct()] }
       });
       this.rebuildDerivedData();
       if (this.data.orderDateFrom || this.data.orderDateTo) this.loadDateFilteredOrders();

@@ -32,6 +32,7 @@ try {
     title: 'VARCHAR(128) NULL',
     job_number: 'VARCHAR(128) NULL',
     work_place: 'VARCHAR(255) NULL',
+    department_name: 'VARCHAR(255) NULL',
     ding_roles_json: 'TEXT NULL',
     is_ding_admin: 'BOOLEAN NOT NULL DEFAULT FALSE',
     is_boss: 'BOOLEAN NOT NULL DEFAULT FALSE',
@@ -91,6 +92,19 @@ try {
     await connection.query('ALTER TABLE attachments ADD COLUMN object_key VARCHAR(1024) NULL AFTER storage_provider');
     // 128 字符前缀兼容较旧的 MySQL/MariaDB utf8mb4 索引长度限制。
     await connection.query('CREATE INDEX idx_attachments_object_key ON attachments (storage_provider, object_key(128))');
+  }
+
+  const [expenseRows] = await connection.execute(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'expenses'`,
+    [process.env.DB_NAME || 'hangji']
+  );
+  const expenseColumns = new Set(expenseRows.map((row) => row.COLUMN_NAME));
+  if (expenseColumns.size && !expenseColumns.has('is_reimbursed')) {
+    await connection.query('ALTER TABLE expenses ADD COLUMN is_reimbursed BOOLEAN NOT NULL DEFAULT FALSE AFTER description');
+  }
+  if (expenseColumns.size) {
+    await connection.query('ALTER TABLE expense_attachments MODIFY file_type VARCHAR(128) NULL');
   }
   console.info('Database schema is ready.');
 } finally {

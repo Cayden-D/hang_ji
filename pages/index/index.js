@@ -125,7 +125,7 @@ Page({
     expenses: [],
     expenseForm: {
       category: 'travel', categoryText: '差旅费', amount: '', currency: 'CNY', incurredOn: todayString(),
-      description: '', attachments: []
+      description: '', isReimbursed: false, attachments: []
     },
     expenseDecisionComment: '',
     shipmentOrderId: '',
@@ -1008,7 +1008,10 @@ Page({
         statusText: statusNames[item.status] || item.status,
         amountText: Number(item.amount || 0).toFixed(2),
         createdDate: dateOnly(item.createdAt),
-        applicantInitial: (item.applicantName || '报').slice(0, 1)
+        applicantInitial: (item.applicantName || '报').slice(0, 1),
+        attachments: (item.attachments || []).map((attachment) => Object.assign({}, attachment, {
+          isImage: /^image\//i.test(attachment.fileType || '')
+        }))
       }));
       this.setData({ expenses, expensesLoading: false });
     } catch (error) {
@@ -1024,7 +1027,7 @@ Page({
   openExpenseCreate() {
     this.setData({
       showExpenseCreate: true,
-      expenseForm: { category: 'travel', categoryText: '差旅费', amount: '', currency: 'CNY', incurredOn: todayString(), description: '', attachments: [] }
+      expenseForm: { category: 'travel', categoryText: '差旅费', amount: '', currency: 'CNY', incurredOn: todayString(), description: '', isReimbursed: false, attachments: [] }
     });
   },
 
@@ -1061,8 +1064,52 @@ Page({
     this.chooseAndUploadImages({
       remaining: 9 - current.length,
       category: 'expense',
-      onComplete: (attachments) => this.setData({ 'expenseForm.attachments': current.concat(attachments).slice(0, 9) })
+      onComplete: (attachments) => this.setData({
+        'expenseForm.attachments': current.concat(attachments.map((item) => Object.assign({}, item, { isImage: true }))).slice(0, 9)
+      })
     });
+  },
+
+  uploadExpenseFiles() {
+    const current = this.data.expenseForm.attachments || [];
+    const remaining = 9 - current.length;
+    if (remaining <= 0) return this.showToast('附件最多上传 9 个');
+    if (this.data.uploading) return this.showToast('附件正在上传，请稍候');
+    if (typeof dd === 'undefined' || !dd.chooseFile || !dd.uploadFile) return this.showToast('当前钉钉版本不支持文件选择或上传');
+    dd.chooseFile({
+      count: remaining,
+      extension: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt', 'zip'],
+      success: async (result) => {
+        const files = result.tempFiles || result.files || [];
+        const paths = result.apFilePaths || result.tempFilePaths || result.filePaths || [];
+        const selected = files.length ? files : paths.map((path) => ({ path, name: String(path).split('/').pop() }));
+        if (!selected.length) return;
+        this.setData({ uploading: true });
+        const attachments = [];
+        try {
+          for (const file of selected.slice(0, remaining)) {
+            const filePath = file.path || file.tempFilePath;
+            if (filePath) attachments.push(Object.assign(
+              {}, await api.uploadAttachment(filePath, file.name || '附件'), { isImage: false }
+            ));
+          }
+          this.setData({ 'expenseForm.attachments': current.concat(attachments).slice(0, 9) });
+          this.showToast('已上传 ' + attachments.length + ' 个文件附件');
+        } catch (error) {
+          if (attachments.length) this.setData({ 'expenseForm.attachments': current.concat(attachments).slice(0, 9) });
+          this.showToast('文件上传失败：' + error.message);
+        } finally {
+          this.setData({ uploading: false });
+        }
+      },
+      fail: (error) => {
+        if (!/cancel/i.test(error.errorMessage || error.errMsg || '')) this.showToast('选择文件失败');
+      }
+    });
+  },
+
+  toggleExpenseReimbursed() {
+    this.setData({ 'expenseForm.isReimbursed': !this.data.expenseForm.isReimbursed });
   },
 
   removeExpenseAttachment(e) {
@@ -1082,7 +1129,7 @@ Page({
     try {
       await api.expenses.create({
         category: form.category, amount, currency: form.currency, incurredOn: form.incurredOn,
-        description: String(form.description).trim(), attachments: form.attachments
+        description: String(form.description).trim(), isReimbursed: Boolean(form.isReimbursed), attachments: form.attachments
       });
       this.setData({ submitting: false, showExpenseCreate: false });
       await this.openExpenses();
@@ -1113,6 +1160,51 @@ Page({
       this.setData({ submitting: false });
       this.showToast('审批失败：' + error.message);
     }
+  },
+
+  openExpenseAttachment(e) {
+    const url = e.currentTarget.dataset.url;
+    const fileType = e.currentTarget.dataset.type || '';
+    if (!url) return this.showToast('附件地址暂不可用');
+    if (/^image\//i.test(fileType) && typeof dd !== 'undefined' && dd.previewImage) {
+      dd.previewImage({ urls: [url], current: 0 });
+      return;
+    }
+    if (typeof dd === 'undefined' || !dd.downloadFile) return this.showToast('当前客户端不支持打开文件附件');
+    this.setData({ uploading: true });
+    dd.downloadFile({
+      url,
+      success: (result) => {
+        const filePath = result.apFilePath || result.tempFilePath || result.filePath;
+        this.setData({ uploading: false });
+        if (filePath && dd.openDocument) dd.openDocument({ filePath, showMenu: true });
+        else this.showToast('附件已下载');
+      },
+      fail: (error) => {
+        this.setData({ uploading: false });
+        this.showToast('附件下载失败：' + (error.errorMessage || error.errMsg || '未知错误'));
+      }
+    });
+  },
+
+  previewProductImage(e) {
+    const productIndex = Number(e.currentTarget.dataset.productIndex);
+    const imageIndex = Number(e.currentTarget.dataset.imageIndex || 0);
+    const product = this.data.detail.products && this.data.detail.products[productIndex];
+    const urls = product ? (product.images || []).map((item) => item.url).filter(Boolean) : [];
+    if (!urls.length) return;
+    if (typeof dd !== 'undefined' && dd.previewImage) dd.previewImage({ urls, current: imageIndex });
+  },
+
+  downloadProductImage(e) {
+    const url = e.currentTarget.dataset.url;
+    if (!url) return;
+    if (typeof dd === 'undefined' || !dd.saveImage) return this.showToast('当前客户端不支持保存图片');
+    dd.saveImage({
+      url,
+      success: () => this.showToast('产品图片已保存到相册'),
+      fail: (error) => this.showToast('图片保存失败：' + (error.errorMessage || error.errMsg || '请检查相册权限'))
+    });
   },
 
   showToast(message) {

@@ -345,6 +345,8 @@ tbody tr:hover { background: #f8fbfb; }
 .file-previews { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
 .file-chip { position: relative; width: 68px; height: 68px; overflow: hidden; background: var(--sea-soft); }
 .file-chip img { width: 100%; height: 100%; object-fit: cover; }
+.file-chip-icon { width: 100%; height: 100%; display: grid; place-items: center; color: var(--sea); font: 800 11px var(--mono); }
+.file-chip small { position: absolute; left: 3px; right: 3px; bottom: 3px; overflow: hidden; padding: 2px 3px; background: rgba(9,35,43,.75); color: #fff; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
 .file-chip button { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--red); color: #fff; font-size: 10px; }
 
 .toast { position: fixed; z-index: 200; right: 25px; bottom: 25px; max-width: 360px; padding: 13px 17px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: var(--shadow); opacity: 0; transform: translateY(15px); pointer-events: none; transition: .22s; }
@@ -382,10 +384,22 @@ tbody tr:hover { background: #f8fbfb; }
 .expense-money { margin-top: 18px; color: var(--ink); font: 800 27px var(--mono); }
 .expense-money small { margin-right: 6px; color: var(--orange); font-size: 10px; }
 .expense-card-pc > p { margin: 5px 0; color: var(--muted); font-size: 10px; }
+.expense-person-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 14px 0 0; background: var(--line); }
+.expense-person-fields div { min-width: 0; padding: 9px 11px; background: #f7fafa; }
+.expense-person-fields dt { color: var(--muted); font-size: 8px; }
+.expense-person-fields dd { margin: 4px 0 0; overflow: hidden; color: var(--ink-2); font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.reimbursed-mark { display: inline-block; padding: 4px 7px; background: #f0e9e6; color: #99513b !important; font-weight: 800; }
+.reimbursed-mark.done { background: #e4f4ec; color: #267a59 !important; }
 .expense-card-pc blockquote { margin: 12px 0 0; padding: 11px 13px; border: 0; border-left: 3px solid var(--sea); background: var(--sea-soft); color: var(--ink-2); font-size: 11px; line-height: 1.6; }
 .expense-receipts-pc { display: flex; gap: 7px; margin-top: 12px; overflow-x: auto; }
-.expense-receipts-pc img { width: 70px; height: 55px; object-fit: cover; }
+.expense-receipts-pc a { width: 86px; color: var(--sea); text-decoration: none; }
+.expense-receipts-pc img, .expense-receipts-pc a > span { width: 86px; height: 55px; display: grid; place-items: center; object-fit: cover; background: var(--sea-soft); font: 800 10px var(--mono); }
+.expense-receipts-pc small { display: block; overflow: hidden; margin-top: 4px; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .expense-card-pc footer { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
 .expense-decision { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .expense-decision input { min-width: 0; padding: 8px 10px; border: 1px solid var(--line); }
 @media (max-width: 900px) { .expense-grid { grid-template-columns: 1fr; } }
+.product-image-gallery { display: flex; gap: 6px; max-width: 310px; margin-top: 10px; overflow-x: auto; }
+.product-image-gallery > div { position: relative; flex: 0 0 62px; height: 50px; }
+.product-image-gallery img { width: 62px; height: 50px; object-fit: cover; }
+.product-image-gallery > div > a:last-child { position: absolute; right: 2px; bottom: 2px; padding: 2px 4px; background: rgba(9,35,43,.78); color: #fff; font-size: 7px; text-decoration: none; }

@@ -13,6 +13,7 @@ test('expense application accepts receipts and coerces the amount', () => {
   });
   assert.equal(result.success, true);
   assert.equal(result.data.amount, 128.5);
+  assert.equal(result.data.isReimbursed, false);
 });
 
 test('expense rejection requires a review comment', () => {

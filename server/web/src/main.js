@@ -72,7 +72,7 @@ const setError = (message = '') => {
 
 const setBusy = (busy, label) => {
   state.busy = busy;
-  ['#create-button', '#save-order', '#save-shipment', '#refresh-button', '#import-pi'].forEach((selector) => {
+  ['#create-button', '#save-order', '#save-shipment', '#save-expense', '#refresh-button', '#import-pi'].forEach((selector) => {
     const button = $(selector);
     if (button) button.disabled = busy;
   });
@@ -97,6 +97,15 @@ const uploadImage = async (file, category) => {
   form.append('file', file);
   form.append('category', category);
   const result = await api('/api/uploads/image', { method: 'POST', body: form });
+  return result.attachment;
+};
+
+const uploadExpenseFile = async (file) => {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('category', 'expense');
+  form.append('originalName', file.name);
+  const result = await api('/api/uploads/file', { method: 'POST', body: form });
   return result.attachment;
 };
 
@@ -562,13 +571,17 @@ function renderDetail() {
   const meta = statusMeta[order.status] || { label: order.status, className: '' };
   $('#detail-status').className = `status-pill ${meta.className}`;
   $('#detail-status').textContent = meta.label;
-  const productMarkup = (order.products || []).map((product) => `<article class="detail-product">
-    <div class="detail-product-image">${product.images?.[0]?.url ? `<img src="${escapeHtml(product.images[0].url)}" alt="" />` : escapeHtml(product.sku?.slice(0, 5) || '产品')}</div>
-    <div><h5>${escapeHtml(product.name)} / ${escapeHtml(product.variant)}</h5><p>${product.sku ? `${escapeHtml(product.sku)} · ` : ''}${product.quantity} 件 · ${product.cartons} 箱<br />${product.weight} kg · ${product.volume} m³ · 装箱 ${product.unitsPerCarton} 件</p></div>
+  const productMarkup = (order.products || []).map((product) => {
+    const images = product.images || [];
+    const gallery = images.map((image) => `<div><a href="${escapeHtml(image.url || '#')}" target="_blank" rel="noreferrer"><img src="${escapeHtml(image.url || '')}" alt="${escapeHtml(image.fileName || '产品图片')}" /></a><a href="${escapeHtml(image.url || '#')}" download="${escapeHtml(image.fileName || '产品图片')}">下载</a></div>`).join('');
+    return `<article class="detail-product">
+    <div class="detail-product-image">${images[0]?.url ? `<a href="${escapeHtml(images[0].url)}" target="_blank" rel="noreferrer"><img src="${escapeHtml(images[0].url)}" alt="" /></a>` : escapeHtml(product.sku?.slice(0, 5) || '产品')}</div>
+    <div><h5>${escapeHtml(product.name)} / ${escapeHtml(product.variant)}</h5><p>${product.sku ? `${escapeHtml(product.sku)} · ` : ''}${product.quantity} 件 · ${product.cartons} 箱<br />${product.weight} kg · ${product.volume} m³ · 装箱 ${product.unitsPerCarton} 件</p>${gallery ? `<div class="product-image-gallery">${gallery}</div>` : ''}</div>
     <aside><strong>USD ${money(product.totalPrice)}</strong>${product.purchaseStatus === 'completed'
       ? `<span class="status-pill purchased">已采购</span><small class="purchase-cost-saved">成本 USD ${money(product.purchaseCost)}</small>`
       : canPurchase() ? `<label class="purchase-cost-field"><span>实际采购成本 USD</span><input data-purchase-cost="${product.id}" type="number" min="0" step="0.01" value="${Number(product.purchaseCost || 0)}" /></label><button data-purchase-product="${product.id}">保存成本并确认</button>` : '<span class="status-pill">待采购</span>'}</aside>
-  </article>`).join('');
+  </article>`;
+  }).join('');
   const attachments = [...(order.paymentAttachments || []), ...(order.shipment?.attachments || [])];
   const showWholePurchase = canPurchase() && ['pending_purchase', 'purchasing'].includes(order.status);
   const purchaseTotalValue = order.purchaseTotal == null ? '' : Number(order.purchaseTotal);
@@ -691,7 +704,9 @@ async function uploadAttachments(files, category) {
   if (remaining <= 0) return toast('最多上传 9 张图片');
   setBusy(true, '正在上传图片…');
   try {
-    for (const file of [...files].slice(0, remaining)) target.push(await uploadImage(file, category));
+    for (const file of [...files].slice(0, remaining)) {
+      target.push(category === 'expense' ? await uploadExpenseFile(file) : await uploadImage(file, category));
+    }
     if (category === 'payment') renderPaymentPreviews();
     else if (category === 'expense') renderExpensePreviews();
     else renderShipmentPreviews();
@@ -700,7 +715,10 @@ async function uploadAttachments(files, category) {
   finally { setBusy(false); }
 }
 
-const previewMarkup = (items, category) => items.map((file, index) => `<div class="file-chip"><img src="${escapeHtml(file.url)}" alt="" /><button type="button" data-remove-file="${category}:${index}">×</button></div>`).join('');
+const previewMarkup = (items, category) => items.map((file, index) => {
+  const image = /^image\//i.test(file.fileType || '');
+  return `<div class="file-chip">${image ? `<img src="${escapeHtml(file.url)}" alt="" />` : `<span class="file-chip-icon">FILE</span>`}<small>${escapeHtml(file.fileName || '附件')}</small><button type="button" data-remove-file="${category}:${index}">×</button></div>`;
+}).join('');
 const renderPaymentPreviews = () => { $('#payment-previews').innerHTML = previewMarkup(state.paymentAttachments, 'payment'); };
 const renderShipmentPreviews = () => { $('#shipment-previews').innerHTML = previewMarkup(state.shipmentAttachments, 'shipment'); };
 const renderExpensePreviews = () => { $('#expense-previews').innerHTML = previewMarkup(state.expenseAttachments, 'expense'); };
@@ -723,6 +741,7 @@ async function submitExpense(event) {
     currency: form.get('currency'),
     amount: Number(form.get('amount')),
     description: String(form.get('description') || '').trim(),
+    isReimbursed: form.get('isReimbursed') === 'on',
     attachments: state.expenseAttachments
   };
   setBusy(true);
@@ -752,12 +771,15 @@ function renderExpenses() {
   $('#expense-view-title').textContent = isSuperAdmin ? '费用报销审批' : '我的费用报销';
   $('#expense-view-note').textContent = isSuperAdmin ? '待审批申请优先显示，可查阅全员报销记录。' : '申请将提交给钉钉超级管理员审批。';
   $('#expense-list').innerHTML = state.expenses.map((expense) => {
-    const receipts = (expense.attachments || []).map((file) => `<a href="${escapeHtml(file.url || '#')}" target="_blank" rel="noreferrer"><img src="${escapeHtml(file.url || '')}" alt="${escapeHtml(file.fileName)}" /></a>`).join('');
+    const receipts = (expense.attachments || []).map((file) => {
+      const image = /^image\//i.test(file.fileType || '');
+      return `<a href="${escapeHtml(file.url || '#')}" target="_blank" rel="noreferrer">${image ? `<img src="${escapeHtml(file.url || '')}" alt="${escapeHtml(file.fileName)}" />` : '<span>FILE</span>'}<small>${escapeHtml(file.fileName)}</small></a>`;
+    }).join('');
     const decision = isSuperAdmin && expense.status === 'pending' ? `<div class="expense-decision"><input data-expense-comment="${expense.id}" placeholder="审批意见（驳回时必填）" /><button class="button secondary" data-expense-decision="${expense.id}:rejected">驳回</button><button class="button primary" data-expense-decision="${expense.id}:approved">通过</button></div>` : '';
     return `<article class="expense-card-pc">
       <header><div><strong>${escapeHtml(isSuperAdmin ? expense.applicantName : expenseCategoryNames[expense.category] || expense.category)}</strong><span>${escapeHtml(expense.expenseNo)} · ${escapeHtml(String(expense.incurredOn).slice(0, 10))}</span></div><em class="expense-state ${escapeHtml(expense.status)}">${escapeHtml(expenseStatusNames[expense.status] || expense.status)}</em></header>
       <div class="expense-money"><small>${escapeHtml(expense.currency)}</small>${money(expense.amount)}</div>
-      ${isSuperAdmin ? `<p>${escapeHtml(expenseCategoryNames[expense.category] || expense.category)}</p>` : ''}<blockquote>${escapeHtml(expense.description)}</blockquote>
+      ${isSuperAdmin ? `<dl class="expense-person-fields"><div><dt>部门</dt><dd>${escapeHtml(expense.applicantDepartment || '未配置')}</dd></div><div><dt>姓名</dt><dd>${escapeHtml(expense.applicantName)}</dd></div><div><dt>职位</dt><dd>${escapeHtml(expense.applicantTitle || '未填写')}</dd></div><div><dt>报销类型</dt><dd>${escapeHtml(expenseCategoryNames[expense.category] || expense.category)}</dd></div></dl>` : ''}<p class="reimbursed-mark ${expense.isReimbursed ? 'done' : ''}">${expense.isReimbursed ? '✓ 已报销' : '未报销'}</p><blockquote>${escapeHtml(expense.description)}</blockquote>
       ${receipts ? `<div class="expense-receipts-pc">${receipts}</div>` : ''}
       ${expense.status !== 'pending' ? `<footer>审批人：${escapeHtml(expense.reviewerName || '超级管理员')}${expense.reviewComment ? ` · ${escapeHtml(expense.reviewComment)}` : ''}</footer>` : decision}
     </article>`;

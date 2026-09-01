@@ -6,9 +6,11 @@ const TOKEN_URL = 'https://api.dingtalk.com/v1.0/oauth2/accessToken';
 const USER_BY_CODE_URL = 'https://oapi.dingtalk.com/topapi/v2/user/getuserinfo';
 const USER_DETAIL_URL = 'https://oapi.dingtalk.com/topapi/v2/user/get';
 const DEPARTMENT_USERS_URL = 'https://oapi.dingtalk.com/topapi/v2/user/list';
+const DEPARTMENT_DETAIL_URL = 'https://oapi.dingtalk.com/topapi/v2/department/get';
 const NOTIFY_URL = 'https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2';
 
 let tokenCache = { value: '', expiresAt: 0 };
+const departmentNameCache = new Map();
 
 const fetchJson = async (url, options = {}) => {
   const response = await fetch(url, { ...options, signal: AbortSignal.timeout(8000) });
@@ -57,6 +59,8 @@ export const normalizeDingUserProfile = (detail = {}, fallback = {}) => {
     ? detail.leader_in_dept
     : (detail.leader_in_dept ? [detail.leader_in_dept] : []);
   const dingUserId = detail.userid || detail.userId || fallback.dingUserId;
+  const departmentIds = (Array.isArray(detail.dept_id_list) ? detail.dept_id_list : [])
+    .map((item) => Number(item)).filter(Number.isFinite);
   return {
     dingUserId,
     unionId: detail.unionid || fallback.unionId || null,
@@ -68,6 +72,8 @@ export const normalizeDingUserProfile = (detail = {}, fallback = {}) => {
     title: detail.title || null,
     jobNumber: detail.job_number || null,
     workPlace: detail.work_place || null,
+    departmentIds,
+    departmentName: detail.department_name || detail.dept_name || fallback.departmentName || null,
     dingRoles: roleList.map((item) => ({
       id: item.id == null ? null : String(item.id),
       name: item.name || '',
@@ -81,6 +87,30 @@ export const normalizeDingUserProfile = (detail = {}, fallback = {}) => {
   };
 };
 
+const getDepartmentName = async (departmentId) => {
+  if (!departmentNameCache.has(departmentId)) {
+    departmentNameCache.set(departmentId, callLegacyApi(DEPARTMENT_DETAIL_URL, {
+      dept_id: departmentId,
+      language: 'zh_CN'
+    }).then((detail) => detail?.name || '').catch((error) => {
+      departmentNameCache.delete(departmentId);
+      throw error;
+    }));
+  }
+  return departmentNameCache.get(departmentId);
+};
+
+const enrichDepartmentName = async (profile) => {
+  if (profile.departmentName || !profile.departmentIds.length) return profile;
+  try {
+    const names = await Promise.all(profile.departmentIds.map(getDepartmentName));
+    return { ...profile, departmentName: [...new Set(names.filter(Boolean))].join(' / ') || null };
+  } catch (error) {
+    logger.warn({ err: error, dingUserId: profile.dingUserId }, 'Unable to load DingTalk department name');
+    return profile;
+  }
+};
+
 export const getUserByAuthCode = async (code) => {
   const login = await callLegacyApi(USER_BY_CODE_URL, { code });
   const dingUserId = login.userid || login.userId;
@@ -91,11 +121,11 @@ export const getUserByAuthCode = async (code) => {
   } catch (error) {
     logger.warn({ err: error, dingUserId }, 'Unable to load optional DingTalk user detail');
   }
-  return normalizeDingUserProfile(detail, {
+  return enrichDepartmentName(normalizeDingUserProfile(detail, {
     dingUserId,
     unionId: login.associated_unionid,
     name: login.name
-  });
+  }));
 };
 
 export const listRootDepartmentUsers = async () => {
@@ -112,7 +142,7 @@ export const listRootDepartmentUsers = async () => {
     });
     const list = Array.isArray(result?.list) ? result.list : (result?.list ? [result.list] : []);
     for (const detail of list) {
-      const profile = normalizeDingUserProfile(detail);
+      const profile = await enrichDepartmentName(normalizeDingUserProfile(detail));
       if (profile.dingUserId) users.push(profile);
     }
     if (!toBoolean(result?.has_more)) return users;
@@ -154,4 +184,5 @@ export const sendWorkNotification = async ({ userIds, title, markdown, orderId }
 
 export const clearTokenCacheForTest = () => {
   tokenCache = { value: '', expiresAt: 0 };
+  departmentNameCache.clear();
 };

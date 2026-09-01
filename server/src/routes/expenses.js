@@ -15,7 +15,7 @@ const attachmentSchema = z.object({
   objectKey: z.string().trim().min(1).max(1024),
   fileName: z.string().trim().min(1).max(512),
   fileSize: z.coerce.number().int().nonnegative().optional().nullable(),
-  fileType: z.string().trim().max(64).optional().nullable()
+  fileType: z.string().trim().max(128).optional().nullable()
 });
 export const createExpenseSchema = z.object({
   category: z.enum(['travel', 'transport', 'meals', 'office', 'freight', 'client', 'other']),
@@ -23,6 +23,7 @@ export const createExpenseSchema = z.object({
   currency: z.enum(['CNY', 'USD', 'EUR']).default('CNY'),
   incurredOn: z.iso.date(),
   description: z.string().trim().min(2).max(1000),
+  isReimbursed: z.boolean().default(false),
   attachments: z.array(attachmentSchema).max(9).default([])
 });
 export const expenseDecisionSchema = z.object({
@@ -55,11 +56,14 @@ const mapRow = (row, attachments = []) => ({
   applicantUserId: row.applicant_user_id,
   applicantName: row.applicant_name,
   applicantAvatarUrl: row.applicant_avatar_url,
+  applicantDepartment: row.applicant_department || '',
+  applicantTitle: row.applicant_title || '',
   category: row.category,
   amount: Number(row.amount),
   currency: row.currency,
   incurredOn: toDateOnly(row.incurred_on),
   description: row.description,
+  isReimbursed: Boolean(row.is_reimbursed),
   status: row.status,
   reviewerUserId: row.reviewer_user_id,
   reviewerName: row.reviewer_name,
@@ -72,6 +76,7 @@ const mapRow = (row, attachments = []) => ({
 const loadExpenses = async (where = '', params = []) => {
   const rows = await query(
     `SELECT e.*, applicant.name AS applicant_name, applicant.avatar_url AS applicant_avatar_url,
+      applicant.department_name AS applicant_department, applicant.title AS applicant_title,
       reviewer.name AS reviewer_name
      FROM expenses e
      JOIN users applicant ON applicant.id = e.applicant_user_id
@@ -112,10 +117,10 @@ router.post('/', validate(createExpenseSchema), async (req, res) => {
   await withTransaction(async (connection) => {
     await connection.execute(
       `INSERT INTO expenses
-        (id, expense_no, applicant_user_id, category, amount, currency, incurred_on, description)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, expense_no, applicant_user_id, category, amount, currency, incurred_on, description, is_reimbursed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, expenseNo, req.user.sub, req.body.category, req.body.amount, req.body.currency,
-        req.body.incurredOn, req.body.description]
+        req.body.incurredOn, req.body.description, req.body.isReimbursed]
     );
     for (const attachment of req.body.attachments) {
       await connection.execute(

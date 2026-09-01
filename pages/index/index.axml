@@ -269,10 +269,11 @@
       <scroll-view a:else scroll-y class="detail-products-scroll">
         <view class="detail-product-count">产品明细 · {{detail.productCount}} 款</view>
         <view class="detail-product multi-detail-product" a:for="{{detail.products}}" a:for-item="product" a:for-index="productIndex" a:key="id">
-          <view class="detail-thumb"><image a:if="{{product.images.length && product.images[0].url}}" src="{{product.images[0].url}}" mode="aspectFill" /><text a:else>{{product.sku || '产品'}}</text></view>
+          <view class="detail-thumb" data-product-index="{{productIndex}}" data-image-index="0" onTap="previewProductImage"><image a:if="{{product.images.length && product.images[0].url}}" src="{{product.images[0].url}}" mode="aspectFill" /><text a:else>{{product.sku || '产品'}}</text></view>
           <view class="detail-product-main">
             <text>{{product.name}} / {{product.variant}}</text>
             <text>{{product.sku ? product.sku + ' · ' : ''}}{{product.quantity}} 件 · USD {{product.totalPrice}}</text>
+            <scroll-view scroll-x class="detail-image-gallery" a:if="{{product.images.length}}"><view class="detail-image-item" a:for="{{product.images}}" a:for-item="attachment" a:for-index="imageIndex" a:key="id"><image src="{{attachment.url}}" mode="aspectFill" data-product-index="{{productIndex}}" data-image-index="{{imageIndex}}" onTap="previewProductImage" /><text data-url="{{attachment.url}}" catchTap="downloadProductImage">下载</text></view></scroll-view>
             <view class="detail-spec-grid">
               <view><text>装箱数</text><text>{{product.unitsPerCarton}} 件/箱</text></view>
               <view><text>箱数</text><text>{{product.cartons}} 箱</text></view>
@@ -357,9 +358,10 @@
         <view class="expense-card" a:for="{{expenses}}" a:key="id">
           <view class="expense-head"><view class="expense-avatar">{{item.applicantInitial}}</view><view><text>{{currentUser.isDingAdmin ? item.applicantName : item.categoryText}}</text><text>{{item.expenseNo}} · {{item.incurredOn}}</text></view><text class="expense-status status-{{item.status}}">{{item.statusText}}</text></view>
           <view class="expense-amount"><text>{{item.currency}}</text> {{item.amountText}}</view>
-          <view class="expense-meta" a:if="{{currentUser.isDingAdmin}}">{{item.categoryText}} · 提交于 {{item.createdDate}}</view>
+          <view class="expense-person-grid" a:if="{{currentUser.isDingAdmin}}"><view><text>部门</text><text>{{item.applicantDepartment || '未配置'}}</text></view><view><text>姓名</text><text>{{item.applicantName}}</text></view><view><text>职位</text><text>{{item.applicantTitle || '未填写'}}</text></view><view><text>报销类型</text><text>{{item.categoryText}}</text></view></view>
+          <view class="expense-meta">提交于 {{item.createdDate}} · {{item.isReimbursed ? '已报销' : '未报销'}}</view>
           <view class="expense-description">{{item.description}}</view>
-          <scroll-view scroll-x class="expense-receipts" a:if="{{item.attachments.length}}"><image a:for="{{item.attachments}}" a:for-item="attachment" a:key="id" src="{{attachment.url}}" mode="aspectFill" /></scroll-view>
+          <scroll-view scroll-x class="expense-receipts" a:if="{{item.attachments.length}}"><view class="expense-attachment" a:for="{{item.attachments}}" a:for-item="attachment" a:key="id" data-url="{{attachment.url}}" data-type="{{attachment.fileType}}" onTap="openExpenseAttachment"><image a:if="{{attachment.isImage}}" src="{{attachment.url}}" mode="aspectFill" /><view a:else class="expense-file-icon">FILE</view><text>{{attachment.fileName}}</text></view></scroll-view>
           <view class="expense-review-result" a:if="{{item.status !== 'pending'}}"><text>审批人：{{item.reviewerName || '超级管理员'}}</text><text a:if="{{item.reviewComment}}">审批意见：{{item.reviewComment}}</text></view>
           <view class="expense-approval" a:if="{{currentUser.isDingAdmin && item.status === 'pending'}}">
             <input value="{{expenseDecisionComment}}" onInput="updateExpenseDecisionComment" placeholder="审批意见（驳回时必填）" />
@@ -381,8 +383,9 @@
         <view class="field"><text>报销金额 *</text><input type="digit" data-field="amount" value="{{expenseForm.amount}}" onInput="updateExpenseForm" placeholder="请输入金额" /></view>
         <view class="field"><text>费用发生日期 *</text><picker mode="date" value="{{expenseForm.incurredOn}}" onChange="setExpenseDate"><view class="select-field">{{expenseForm.incurredOn}} <text>⌄</text></view></picker></view>
         <view class="field"><text>费用说明 *</text><textarea data-field="description" value="{{expenseForm.description}}" onInput="updateExpenseForm" maxlength="1000" placeholder="说明费用用途、关联客户或项目" /></view>
-        <view class="shipment-upload" onTap="uploadExpenseAttachments"><text>＋ 上传发票 / 付款凭证</text><text>{{expenseForm.attachments.length}} / 9</text></view>
-        <view class="expense-upload-grid" a:if="{{expenseForm.attachments.length}}"><view a:for="{{expenseForm.attachments}}" a:for-item="attachment" a:for-index="index" a:key="objectKey"><image src="{{attachment.url}}" mode="aspectFill" /><text data-index="{{index}}" onTap="removeExpenseAttachment">×</text></view></view>
+        <view class="expense-upload-actions"><view class="shipment-upload" onTap="uploadExpenseAttachments"><text>＋ 图片凭证</text><text>{{expenseForm.attachments.length}} / 9</text></view><view class="shipment-upload" onTap="uploadExpenseFiles"><text>＋ 文件附件</text><text>PDF / Office</text></view></view>
+        <view class="expense-upload-grid" a:if="{{expenseForm.attachments.length}}"><view a:for="{{expenseForm.attachments}}" a:for-item="attachment" a:for-index="index" a:key="objectKey"><image a:if="{{attachment.isImage}}" src="{{attachment.url}}" mode="aspectFill" /><view a:else class="expense-file-icon">FILE</view><text data-index="{{index}}" onTap="removeExpenseAttachment">×</text></view></view>
+        <view class="expense-check-row" onTap="toggleExpenseReimbursed"><view class="expense-checkbox {{expenseForm.isReimbursed ? 'checked' : ''}}">{{expenseForm.isReimbursed ? '✓' : ''}}</view><view><text>已报销</text><text>勾选后将在报销列表中标记为已报销</text></view></view>
         <view class="form-space"></view>
       </scroll-view>
       <view class="sheet-submit"><button disabled="{{submitting || uploading}}" onTap="submitExpense">{{uploading ? '凭证上传中…' : (submitting ? '正在提交…' : '提交给超级管理员')}}</button></view>

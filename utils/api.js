@@ -101,6 +101,28 @@ const uploadPi = (filePath, fileName = 'PI.xlsx') => new Promise((resolve, rejec
   });
 });
 
+const uploadAttachment = (filePath, fileName = '附件') => new Promise((resolve, reject) => {
+  if (typeof dd === 'undefined' || !dd.uploadFile) {
+    reject(new Error('当前钉钉版本不支持文件上传'));
+    return;
+  }
+  dd.uploadFile({
+    url: apiBaseUrl + '/api/uploads/file',
+    fileType: 'file',
+    fileName: 'file',
+    filePath,
+    header: { Authorization: 'Bearer ' + getApp().globalData.sessionToken },
+    formData: { category: 'expense', originalName: fileName },
+    success: (res) => {
+      const body = parseData(res.data);
+      const status = Number(res.statusCode || res.status || 0);
+      if (status >= 200 && status < 300 && body && body.attachment) return resolve(body.attachment);
+      reject(new Error(body && body.error && body.error.message ? body.error.message : '文件上传失败（' + (status || '未知状态') + '）'));
+    },
+    fail: (error) => reject(new Error(error.errorMessage || error.errMsg || '文件上传失败'))
+  });
+});
+
 const loginWithDingTalk = (code) => request({
   path: '/api/auth/dingtalk',
   method: 'POST',
@@ -157,4 +179,4 @@ const expenses = {
   })
 };
 
-module.exports = { request, uploadImage, uploadPi, loginWithDingTalk, orders, adminUsers, exchangeRates, performance, expenses };
+module.exports = { request, uploadImage, uploadPi, uploadAttachment, loginWithDingTalk, orders, adminUsers, exchangeRates, performance, expenses };

@@ -71,3 +71,24 @@ export const uploadImageToOss = async (file, category = 'misc') => {
     sourceType: 'oss'
   };
 };
+
+export const uploadFileToOss = async (file, category = 'expense') => {
+  const now = new Date();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const extension = safeExtension(file);
+  const safeCategory = category === 'expense' ? 'expense' : 'misc';
+  const objectKey = `${config.oss.uploadDir}/${safeCategory}/${now.getUTCFullYear()}/${month}/${randomUUID()}${extension}`;
+  await getClient().put(objectKey, file.buffer, {
+    mime: file.mimetype || 'application/octet-stream',
+    headers: { 'Cache-Control': 'private, max-age=31536000, immutable' }
+  });
+  return {
+    provider: 'oss',
+    objectKey,
+    url: getOssDownloadUrl(objectKey),
+    fileName: file.originalname || `attachment${extension}`,
+    fileSize: file.size,
+    fileType: file.mimetype || 'application/octet-stream',
+    sourceType: 'oss'
+  };
+};

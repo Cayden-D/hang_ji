@@ -11,13 +11,15 @@ test('DingTalk department member maps administrator and profile fields', () => {
     leader: true,
     title: '技术总监',
     mobile: '18500000000',
-    role_list: { id: 100, name: '总监', group_name: '职务' }
+    role_list: { id: 100, name: '总监', group_name: '职务' },
+    dept_id_list: [1, 23]
   });
 
   assert.equal(profile.dingUserId, 'zhangsan');
   assert.equal(profile.isDingAdmin, true);
   assert.equal(profile.isLeader, true);
   assert.equal(profile.title, '技术总监');
+  assert.deepEqual(profile.departmentIds, [1, 23]);
   assert.deepEqual(profile.dingRoles, [{ id: '100', name: '总监', groupName: '职务' }]);
 });
 

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { AppError } from '../errors.js';
 import { authenticate } from '../middleware/auth.js';
-import { uploadImageToOss } from '../services/oss.js';
+import { uploadFileToOss, uploadImageToOss } from '../services/oss.js';
 
 const router = Router();
 router.use(authenticate);
@@ -24,6 +24,16 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 5, parts: 6 }
 });
 
+const expenseFileUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 5, parts: 6 }
+});
+
+const allowedExpenseExtensions = new Set([
+  '.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.pdf', '.doc', '.docx',
+  '.xls', '.xlsx', '.csv', '.txt', '.zip'
+]);
+
 router.post('/image', (req, res, next) => {
   upload.single('file')(req, res, async (error) => {
     if (error) {
@@ -38,6 +48,30 @@ router.post('/image', (req, res, next) => {
     req.file.mimetype = detectedMime;
     try {
       const attachment = await uploadImageToOss(req.file, req.body.category);
+      return res.status(201).json({ attachment });
+    } catch (uploadError) {
+      return next(uploadError);
+    }
+  });
+});
+
+router.post('/file', (req, res, next) => {
+  expenseFileUpload.single('file')(req, res, async (error) => {
+    if (error) {
+      if (error instanceof multer.MulterError) {
+        return next(new AppError(400, 'INVALID_UPLOAD', error.code === 'LIMIT_FILE_SIZE' ? 'File must not exceed 25 MB' : error.message));
+      }
+      return next(error);
+    }
+    if (!req.file) return next(new AppError(400, 'FILE_REQUIRED', 'File is required'));
+    const originalName = String(req.body.originalName || req.file.originalname || '');
+    const extension = originalName.slice(originalName.lastIndexOf('.')).toLowerCase();
+    if (!allowedExpenseExtensions.has(extension)) {
+      return next(new AppError(415, 'UNSUPPORTED_FILE', 'Only images, PDF, Office, CSV, TXT and ZIP files are supported'));
+    }
+    req.file.originalname = originalName;
+    try {
+      const attachment = await uploadFileToOss(req.file, 'expense');
       return res.status(201).json({ attachment });
     } catch (uploadError) {
       return next(uploadError);

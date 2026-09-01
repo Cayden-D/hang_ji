@@ -22,6 +22,7 @@ const mapUser = (row) => ({
   title: row.title,
   jobNumber: row.job_number,
   workPlace: row.work_place,
+  departmentName: row.department_name,
   dingRoles: (() => {
     try { return JSON.parse(row.ding_roles_json || '[]'); } catch { return []; }
   })(),
@@ -40,18 +41,18 @@ router.post('/dingtalk', validate(loginSchema), async (req, res) => {
   const initialRole = profile.isDingAdmin ? 'admin' : resolveInitialRole(profile.dingUserId);
   await query(
     `INSERT INTO users
-      (id, ding_user_id, union_id, name, avatar_url, mobile, email, org_email, title, job_number, work_place,
+      (id, ding_user_id, union_id, name, avatar_url, mobile, email, org_email, title, job_number, work_place, department_name,
        ding_roles_json, is_ding_admin, is_boss, is_senior, is_leader, manager_user_id, role, last_login_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3))
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3))
      ON DUPLICATE KEY UPDATE
       union_id = VALUES(union_id), name = VALUES(name), avatar_url = VALUES(avatar_url),
       mobile = VALUES(mobile), email = VALUES(email), org_email = VALUES(org_email), title = VALUES(title),
-      job_number = VALUES(job_number), work_place = VALUES(work_place), ding_roles_json = VALUES(ding_roles_json),
+      job_number = VALUES(job_number), work_place = VALUES(work_place), department_name = VALUES(department_name), ding_roles_json = VALUES(ding_roles_json),
       is_ding_admin = VALUES(is_ding_admin), is_boss = VALUES(is_boss), is_senior = VALUES(is_senior),
       is_leader = VALUES(is_leader), manager_user_id = VALUES(manager_user_id),
       role = IF(VALUES(is_ding_admin) = TRUE, 'admin', role), last_login_at = NOW(3)`,
     [randomUUID(), profile.dingUserId, profile.unionId, profile.name, profile.avatarUrl, profile.mobile,
-      profile.email, profile.orgEmail, profile.title, profile.jobNumber, profile.workPlace,
+      profile.email, profile.orgEmail, profile.title, profile.jobNumber, profile.workPlace, profile.departmentName,
       JSON.stringify(profile.dingRoles), profile.isDingAdmin, profile.isBoss, profile.isSenior,
       profile.isLeader, profile.managerUserId, initialRole]
   );
